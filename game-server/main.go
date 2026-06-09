@@ -11,8 +11,11 @@ import (
 	"time"
 
 	"cheat-detection/game-server/config"
+	"cheat-detection/game-server/metrics"
 	"cheat-detection/game-server/server"
 	"cheat-detection/game-server/telemetry"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -48,14 +51,17 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				start := time.Now()
 				game.RunTick(time.Now())
 				srv.BroadcastState()
+				metrics.TickDuration.Observe(time.Since(start).Seconds())
 			}
 		}
 	}()
 
 	http.HandleFunc("/ws", srv.HandleWS)
 	http.HandleFunc("/dashboard-ws", srv.HandleDashboardWS)
+	http.Handle("/metrics", promhttp.Handler())
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	httpSrv := &http.Server{Addr: addr}

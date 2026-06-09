@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"cheat-detection/game-server/metrics"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -58,6 +59,9 @@ func (p *Producer) PublishTelemetry(ctx context.Context, t PlayerTelemetry) {
 	})
 	if err != nil {
 		log.Printf("kafka telemetry write error: %v", err)
+		metrics.KafkaPublishErrors.Inc()
+	} else {
+		metrics.TelemetryPublished.WithLabelValues("telemetry.raw").Inc()
 	}
 }
 
@@ -79,6 +83,9 @@ func (p *Producer) PublishKill(ctx context.Context, k KillEvent) {
 	})
 	if err != nil {
 		log.Printf("kafka kill write error: %v", err)
+		metrics.KafkaPublishErrors.Inc()
+	} else {
+		metrics.TelemetryPublished.WithLabelValues("events.kills").Inc()
 	}
 }
 
