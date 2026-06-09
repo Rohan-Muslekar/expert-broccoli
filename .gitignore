@@ -43,3 +43,6 @@ prometheus_data/
 
 # Grafana data
 grafana_data/
+
+# Superpowers working docs
+docs/superpowers/
