@@ -1,0 +1,45 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+game-server/game-server
+feature-engine/feature-engine
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ML models (large files)
+ml-service/saved_models/*.pkl
+ml-service/saved_models/*.pt
+!ml-service/saved_models/.gitkeep
+
+# Datasets
+data/
+*.csv
+*.parquet
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Prometheus data
+prometheus_data/
+
+# Grafana data
+grafana_data/
