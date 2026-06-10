@@ -1,4 +1,5 @@
 services:
+  # --- Kafka (KRaft, single broker) ---
   kafka:
     image: apache/kafka:3.7.0
     ports:
@@ -30,6 +31,7 @@ services:
     environment:
       KAFKA_BROKER: kafka:9092
 
+  # --- Game Simulator ---
   game-server:
     build: ./game-server
     ports:
@@ -38,7 +40,8 @@ services:
       KAFKA_ENABLED: "true"
       KAFKA_BROKERS: "kafka:9092"
       BOT_COUNT: "8"
-      BOT_CHEATS_ENABLED: "false"
+      BOT_CHEATS_ENABLED: "true"
+      METRICS_ENABLED: "true"
     depends_on:
       kafka:
         condition: service_healthy
@@ -49,3 +52,68 @@ services:
       - "80:80"
     depends_on:
       - game-server
+
+  # --- Feature Engine (Go) ---
+  feature-engine:
+    build: ./feature-engine
+    ports:
+      - "9090:9090"
+    environment:
+      KAFKA_BROKERS: "kafka:9092"
+      CONSUME_TOPIC: "telemetry.raw"
+      PRODUCE_TOPIC: "features.computed"
+      ALERTS_TOPIC: "alerts.detections"
+      METRICS_PORT: "9090"
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # --- ML Service (Python) ---
+  ml-service:
+    build: ./ml-service
+    ports:
+      - "8000:8000"
+    environment:
+      KAFKA_BROKERS: "kafka:9092"
+      CONSUME_TOPIC: "features.computed"
+      ALERTS_TOPIC: "alerts.detections"
+      MODEL_DIR: "/app/saved_models"
+      METRICS_PORT: "8000"
+    volumes:
+      - ./ml-service/saved_models:/app/saved_models
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # --- Observability ---
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=24h"
+    depends_on:
+      - game-server
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/pipeline-health.json
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+  grafana_data:

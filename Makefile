@@ -1,4 +1,4 @@
-.PHONY: up down logs build run-local clean
+.PHONY: up down logs build run-local clean kafka-topics
 
 up:
 	docker compose up --build -d
@@ -11,10 +11,15 @@ logs:
 
 build:
 	cd game-server && go build -o game-server .
+	cd feature-engine && go build -o feature-engine .
 
 run-local:
 	cd game-server && KAFKA_ENABLED=false ./game-server
 
+kafka-topics:
+	docker compose exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+
 clean:
 	cd game-server && rm -f game-server
+	cd feature-engine && rm -f feature-engine
 	docker compose down -v
