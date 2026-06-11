@@ -33,7 +33,7 @@ func main() {
 	defer cancel()
 
 	var featureEngine *feature.Engine
-	featureCh := make(chan telemetry.PlayerTelemetry, 1024)
+	featureEvents := make(chan telemetry.PlayerTelemetry, 1024)
 	if cfg.KafkaEnabled {
 		featureEngine = feature.NewEngine(
 			cfg.KafkaBrokers,
@@ -42,25 +42,25 @@ func main() {
 			cfg.FeaturePlayerTimeout,
 		)
 		defer featureEngine.Close()
-		go featureEngine.Run(ctx, featureCh)
+		go featureEngine.Run(ctx, featureEvents)
 		log.Printf("feature engine started (produce=%s, alerts=%s)",
 			cfg.FeatureProduceTopic, cfg.FeatureAlertsTopic)
 	}
 
 	go func() {
-		for t := range game.TelemetryCh() {
-			producer.PublishTelemetry(ctx, t)
+		for playerTelemetry := range game.TelemetryCh() {
+			producer.PublishTelemetry(ctx, playerTelemetry)
 			if featureEngine != nil {
 				select {
-				case featureCh <- t:
+				case featureEvents <- playerTelemetry:
 				default:
 				}
 			}
 		}
 	}()
 	go func() {
-		for k := range game.KillsCh() {
-			producer.PublishKill(ctx, k)
+		for killEvent := range game.KillsCh() {
+			producer.PublishKill(ctx, killEvent)
 		}
 	}()
 

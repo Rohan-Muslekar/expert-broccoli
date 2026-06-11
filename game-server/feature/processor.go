@@ -50,41 +50,41 @@ func NewPlayerProcessor(playerID string) *PlayerProcessor {
 	}
 }
 
-func (p *PlayerProcessor) Process(ev telemetry.PlayerTelemetry) FeatureVector {
+func (p *PlayerProcessor) Process(event telemetry.PlayerTelemetry) FeatureVector {
 	if len(p.buffer) >= Window30s {
 		p.buffer = p.buffer[1:]
 	}
-	p.buffer = append(p.buffer, ev)
+	p.buffer = append(p.buffer, event)
 
-	w1 := p.window(Window1s)
-	w5 := p.window(Window5s)
-	w30 := p.window(Window30s)
+	window1s := p.window(Window1s)
+	window5s := p.window(Window5s)
+	window30s := p.window(Window30s)
 
-	fv := FeatureVector{PlayerTelemetry: ev}
+	features := FeatureVector{PlayerTelemetry: event}
 
-	fv.AimDeltaMean1s = meanFloat(w1, func(e telemetry.PlayerTelemetry) float64 { return e.AimDelta })
-	fv.AimDeltaMean5s = meanFloat(w5, func(e telemetry.PlayerTelemetry) float64 { return e.AimDelta })
-	fv.AimDeltaMax1s = maxFloat(w1, func(e telemetry.PlayerTelemetry) float64 { return e.AimDelta })
-	fv.AimSnapCount5s = countWhere(w5, func(e telemetry.PlayerTelemetry) bool { return e.AimDelta > 0.5 })
-	fv.AimToEnemyOffsetMean5s = meanFloat(w5, func(e telemetry.PlayerTelemetry) float64 { return e.AimToEnemyOffset })
+	features.AimDeltaMean1s = meanFloat(window1s, func(entry telemetry.PlayerTelemetry) float64 { return entry.AimDelta })
+	features.AimDeltaMean5s = meanFloat(window5s, func(entry telemetry.PlayerTelemetry) float64 { return entry.AimDelta })
+	features.AimDeltaMax1s = maxFloat(window1s, func(entry telemetry.PlayerTelemetry) float64 { return entry.AimDelta })
+	features.AimSnapCount5s = countWhere(window5s, func(entry telemetry.PlayerTelemetry) bool { return entry.AimDelta > 0.5 })
+	features.AimToEnemyOffsetMean5s = meanFloat(window5s, func(entry telemetry.PlayerTelemetry) float64 { return entry.AimToEnemyOffset })
 
-	fv.HitRate5s = hitRate(w5)
-	fv.HitRate30s = hitRate(w30)
-	fv.ShotsFired5s = countWhere(w5, func(e telemetry.PlayerTelemetry) bool { return e.IsShooting })
-	fv.KillsPer30s = countKills(w30)
-	fv.TimeToKillMean30s = meanKillSequenceLength(w30)
+	features.HitRate5s = hitRate(window5s)
+	features.HitRate30s = hitRate(window30s)
+	features.ShotsFired5s = countWhere(window5s, func(entry telemetry.PlayerTelemetry) bool { return entry.IsShooting })
+	features.KillsPer30s = countKills(window30s)
+	features.TimeToKillMean30s = meanKillSequenceLength(window30s)
 
-	fv.SpeedMean1s = meanFloat(w1, func(e telemetry.PlayerTelemetry) float64 { return speed(e) })
-	fv.SpeedMean5s = meanFloat(w5, func(e telemetry.PlayerTelemetry) float64 { return speed(e) })
-	fv.SpeedMax1s = maxFloat(w1, func(e telemetry.PlayerTelemetry) float64 { return speed(e) })
-	fv.DirectionChangeCount5s = directionChanges(w5)
+	features.SpeedMean1s = meanFloat(window1s, func(entry telemetry.PlayerTelemetry) float64 { return playerSpeed(entry) })
+	features.SpeedMean5s = meanFloat(window5s, func(entry telemetry.PlayerTelemetry) float64 { return playerSpeed(entry) })
+	features.SpeedMax1s = maxFloat(window1s, func(entry telemetry.PlayerTelemetry) float64 { return playerSpeed(entry) })
+	features.DirectionChangeCount5s = directionChanges(window5s)
 
-	fv.AimLockRatio5s = aimLockRatio(w5)
-	fv.PrefireRatio5s = prefireRatio(w5)
-	fv.ReactionTimeMean5s = reactionTimeMean(w5)
-	fv.EnemyTrackingScore5s = enemyTrackingScore(w5)
+	features.AimLockRatio5s = aimLockRatio(window5s)
+	features.PrefireRatio5s = prefireRatio(window5s)
+	features.ReactionTimeMean5s = reactionTimeMean(window5s)
+	features.EnemyTrackingScore5s = enemyTrackingScore(window5s)
 
-	return fv
+	return features
 }
 
 func (p *PlayerProcessor) window(size int) []telemetry.PlayerTelemetry {
@@ -94,134 +94,134 @@ func (p *PlayerProcessor) window(size int) []telemetry.PlayerTelemetry {
 	return p.buffer[len(p.buffer)-size:]
 }
 
-func speed(e telemetry.PlayerTelemetry) float64 {
-	return math.Sqrt(e.VelX*e.VelX + e.VelY*e.VelY)
+func playerSpeed(entry telemetry.PlayerTelemetry) float64 {
+	return math.Sqrt(entry.VelX*entry.VelX + entry.VelY*entry.VelY)
 }
 
-func meanFloat(data []telemetry.PlayerTelemetry, f func(telemetry.PlayerTelemetry) float64) float64 {
+func meanFloat(data []telemetry.PlayerTelemetry, extract func(telemetry.PlayerTelemetry) float64) float64 {
 	if len(data) == 0 {
 		return 0
 	}
-	sum := 0.0
-	for _, e := range data {
-		sum += f(e)
+	total := 0.0
+	for _, entry := range data {
+		total += extract(entry)
 	}
-	return sum / float64(len(data))
+	return total / float64(len(data))
 }
 
-func maxFloat(data []telemetry.PlayerTelemetry, f func(telemetry.PlayerTelemetry) float64) float64 {
+func maxFloat(data []telemetry.PlayerTelemetry, extract func(telemetry.PlayerTelemetry) float64) float64 {
 	if len(data) == 0 {
 		return 0
 	}
-	m := f(data[0])
-	for _, e := range data[1:] {
-		v := f(e)
-		if v > m {
-			m = v
+	maxVal := extract(data[0])
+	for _, entry := range data[1:] {
+		val := extract(entry)
+		if val > maxVal {
+			maxVal = val
 		}
 	}
-	return m
+	return maxVal
 }
 
-func countWhere(data []telemetry.PlayerTelemetry, pred func(telemetry.PlayerTelemetry) bool) int {
-	n := 0
-	for _, e := range data {
-		if pred(e) {
-			n++
-		}
-	}
-	return n
-}
-
-func hitRate(data []telemetry.PlayerTelemetry) float64 {
-	shots := 0
-	hits := 0
-	for _, e := range data {
-		if e.IsShooting {
-			shots++
-			if e.HitTarget {
-				hits++
-			}
-		}
-	}
-	if shots == 0 {
-		return 0
-	}
-	return float64(hits) / float64(shots)
-}
-
-func countKills(data []telemetry.PlayerTelemetry) int {
-	kills := 0
-	inHitSequence := false
-	for _, e := range data {
-		if e.HitTarget && !inHitSequence {
-			inHitSequence = true
-		} else if !e.HitTarget && inHitSequence {
-			kills++
-			inHitSequence = false
-		}
-	}
-	if inHitSequence {
-		kills++
-	}
-	return kills
-}
-
-func meanKillSequenceLength(data []telemetry.PlayerTelemetry) float64 {
-	var lengths []int
-	current := 0
-	for _, e := range data {
-		if e.HitTarget && e.IsShooting {
-			current++
-		} else if current > 0 {
-			lengths = append(lengths, current)
-			current = 0
-		}
-	}
-	if current > 0 {
-		lengths = append(lengths, current)
-	}
-	if len(lengths) == 0 {
-		return 0
-	}
-	sum := 0
-	for _, l := range lengths {
-		sum += l
-	}
-	return float64(sum) / float64(len(lengths))
-}
-
-func directionChanges(data []telemetry.PlayerTelemetry) int {
-	if len(data) < 2 {
-		return 0
-	}
+func countWhere(data []telemetry.PlayerTelemetry, predicate func(telemetry.PlayerTelemetry) bool) int {
 	count := 0
-	for i := 1; i < len(data); i++ {
-		prev := math.Atan2(data[i-1].VelY, data[i-1].VelX)
-		curr := math.Atan2(data[i].VelY, data[i].VelX)
-		prevSpeed := speed(data[i-1])
-		currSpeed := speed(data[i])
-		if prevSpeed < 0.1 || currSpeed < 0.1 {
-			continue
-		}
-		diff := math.Abs(curr - prev)
-		if diff > math.Pi {
-			diff = 2*math.Pi - diff
-		}
-		if diff > math.Pi/2 {
+	for _, entry := range data {
+		if predicate(entry) {
 			count++
 		}
 	}
 	return count
 }
 
+func hitRate(data []telemetry.PlayerTelemetry) float64 {
+	shotCount := 0
+	hitCount := 0
+	for _, entry := range data {
+		if entry.IsShooting {
+			shotCount++
+			if entry.HitTarget {
+				hitCount++
+			}
+		}
+	}
+	if shotCount == 0 {
+		return 0
+	}
+	return float64(hitCount) / float64(shotCount)
+}
+
+func countKills(data []telemetry.PlayerTelemetry) int {
+	killCount := 0
+	inHitSequence := false
+	for _, entry := range data {
+		if entry.HitTarget && !inHitSequence {
+			inHitSequence = true
+		} else if !entry.HitTarget && inHitSequence {
+			killCount++
+			inHitSequence = false
+		}
+	}
+	if inHitSequence {
+		killCount++
+	}
+	return killCount
+}
+
+func meanKillSequenceLength(data []telemetry.PlayerTelemetry) float64 {
+	var sequenceLengths []int
+	currentLength := 0
+	for _, entry := range data {
+		if entry.HitTarget && entry.IsShooting {
+			currentLength++
+		} else if currentLength > 0 {
+			sequenceLengths = append(sequenceLengths, currentLength)
+			currentLength = 0
+		}
+	}
+	if currentLength > 0 {
+		sequenceLengths = append(sequenceLengths, currentLength)
+	}
+	if len(sequenceLengths) == 0 {
+		return 0
+	}
+	total := 0
+	for _, length := range sequenceLengths {
+		total += length
+	}
+	return float64(total) / float64(len(sequenceLengths))
+}
+
+func directionChanges(data []telemetry.PlayerTelemetry) int {
+	if len(data) < 2 {
+		return 0
+	}
+	changeCount := 0
+	for i := 1; i < len(data); i++ {
+		prevAngle := math.Atan2(data[i-1].VelY, data[i-1].VelX)
+		currAngle := math.Atan2(data[i].VelY, data[i].VelX)
+		prevSpeed := playerSpeed(data[i-1])
+		currSpeed := playerSpeed(data[i])
+		if prevSpeed < 0.1 || currSpeed < 0.1 {
+			continue
+		}
+		angleDiff := math.Abs(currAngle - prevAngle)
+		if angleDiff > math.Pi {
+			angleDiff = 2*math.Pi - angleDiff
+		}
+		if angleDiff > math.Pi/2 {
+			changeCount++
+		}
+	}
+	return changeCount
+}
+
 func aimLockRatio(data []telemetry.PlayerTelemetry) float64 {
 	visibleTicks := 0
 	lockedTicks := 0
-	for _, e := range data {
-		if e.NearestEnemyVisible {
+	for _, entry := range data {
+		if entry.NearestEnemyVisible {
 			visibleTicks++
-			if e.AimToEnemyOffset < 0.1 {
+			if entry.AimToEnemyOffset < 0.1 {
 				lockedTicks++
 			}
 		}
@@ -235,10 +235,10 @@ func aimLockRatio(data []telemetry.PlayerTelemetry) float64 {
 func prefireRatio(data []telemetry.PlayerTelemetry) float64 {
 	shootingTicks := 0
 	prefireTicks := 0
-	for _, e := range data {
-		if e.IsShooting {
+	for _, entry := range data {
+		if entry.IsShooting {
 			shootingTicks++
-			if !e.NearestEnemyVisible {
+			if !entry.NearestEnemyVisible {
 				prefireTicks++
 			}
 		}
@@ -271,55 +271,55 @@ func reactionTimeMean(data []telemetry.PlayerTelemetry) float64 {
 	if len(reactionTimes) == 0 {
 		return 0
 	}
-	sum := 0
-	for _, t := range reactionTimes {
-		sum += t
+	total := 0
+	for _, reactionTime := range reactionTimes {
+		total += reactionTime
 	}
-	return float64(sum) / float64(len(reactionTimes))
+	return float64(total) / float64(len(reactionTimes))
 }
 
 func enemyTrackingScore(data []telemetry.PlayerTelemetry) float64 {
 	if len(data) < 3 {
 		return 0
 	}
-	var dAim, dEnemy []float64
+	var aimDeltas, enemyAngleDeltas []float64
 	for i := 1; i < len(data); i++ {
 		if !data[i].NearestEnemyVisible || !data[i-1].NearestEnemyVisible {
 			continue
 		}
-		dAim = append(dAim, data[i].AimAngle-data[i-1].AimAngle)
-		dEnemy = append(dEnemy, data[i].NearestEnemyAngle-data[i-1].NearestEnemyAngle)
+		aimDeltas = append(aimDeltas, data[i].AimAngle-data[i-1].AimAngle)
+		enemyAngleDeltas = append(enemyAngleDeltas, data[i].NearestEnemyAngle-data[i-1].NearestEnemyAngle)
 	}
-	if len(dAim) < 2 {
+	if len(aimDeltas) < 2 {
 		return 0
 	}
-	return pearson(dAim, dEnemy)
+	return pearsonCorrelation(aimDeltas, enemyAngleDeltas)
 }
 
-func pearson(x, y []float64) float64 {
-	n := len(x)
-	if n == 0 || n != len(y) {
+func pearsonCorrelation(x, y []float64) float64 {
+	count := len(x)
+	if count == 0 || count != len(y) {
 		return 0
 	}
-	mx, my := 0.0, 0.0
-	for i := 0; i < n; i++ {
-		mx += x[i]
-		my += y[i]
+	meanX, meanY := 0.0, 0.0
+	for i := 0; i < count; i++ {
+		meanX += x[i]
+		meanY += y[i]
 	}
-	mx /= float64(n)
-	my /= float64(n)
+	meanX /= float64(count)
+	meanY /= float64(count)
 
-	num, dx, dy := 0.0, 0.0, 0.0
-	for i := 0; i < n; i++ {
-		a := x[i] - mx
-		b := y[i] - my
-		num += a * b
-		dx += a * a
-		dy += b * b
+	numerator, sumSquaredDeviationX, sumSquaredDeviationY := 0.0, 0.0, 0.0
+	for i := 0; i < count; i++ {
+		diffX := x[i] - meanX
+		diffY := y[i] - meanY
+		numerator += diffX * diffY
+		sumSquaredDeviationX += diffX * diffX
+		sumSquaredDeviationY += diffY * diffY
 	}
-	denom := math.Sqrt(dx * dy)
-	if denom < 1e-12 {
+	denominator := math.Sqrt(sumSquaredDeviationX * sumSquaredDeviationY)
+	if denominator < 1e-12 {
 		return 0
 	}
-	return num / denom
+	return numerator / denominator
 }

@@ -21,8 +21,8 @@ type Engine struct {
 }
 
 type playerSlot struct {
-	proc     *PlayerProcessor
-	lastSeen time.Time
+	processor *PlayerProcessor
+	lastSeen  time.Time
 }
 
 func NewEngine(brokers []string, produceTopic, alertsTopic string, playerTimeoutSec int) *Engine {
@@ -46,47 +46,47 @@ func NewEngine(brokers []string, produceTopic, alertsTopic string, playerTimeout
 	}
 }
 
-func (e *Engine) Run(ctx context.Context, events <-chan telemetry.PlayerTelemetry) {
-	go e.cleanupLoop(ctx)
+func (engine *Engine) Run(ctx context.Context, events <-chan telemetry.PlayerTelemetry) {
+	go engine.cleanupLoop(ctx)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case ev, ok := <-events:
+		case event, ok := <-events:
 			if !ok {
 				return
 			}
 			start := time.Now()
-			e.processEvent(ctx, ev)
+			engine.processEvent(ctx, event)
 			metrics.FeatureProcessingDuration.Observe(time.Since(start).Seconds())
 		}
 	}
 }
 
-func (e *Engine) processEvent(ctx context.Context, ev telemetry.PlayerTelemetry) {
-	e.mu.Lock()
-	slot, exists := e.processors[ev.PlayerID]
+func (engine *Engine) processEvent(ctx context.Context, event telemetry.PlayerTelemetry) {
+	engine.mu.Lock()
+	slot, exists := engine.processors[event.PlayerID]
 	if !exists {
 		slot = &playerSlot{
-			proc: NewPlayerProcessor(ev.PlayerID),
+			processor: NewPlayerProcessor(event.PlayerID),
 		}
-		e.processors[ev.PlayerID] = slot
+		engine.processors[event.PlayerID] = slot
 		metrics.FeatureActivePlayers.Inc()
 	}
 	slot.lastSeen = time.Now()
-	e.mu.Unlock()
+	engine.mu.Unlock()
 
-	fv := slot.proc.Process(ev)
+	features := slot.processor.Process(event)
 
-	fvData, err := json.Marshal(fv)
+	featureData, err := json.Marshal(features)
 	if err != nil {
 		log.Printf("marshal feature error: %v", err)
 		return
 	}
-	err = e.featureWriter.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(fv.PlayerID),
-		Value: fvData,
+	err = engine.featureWriter.WriteMessages(ctx, kafka.Message{
+		Key:   []byte(features.PlayerID),
+		Value: featureData,
 	})
 	if err != nil {
 		log.Printf("feature publish error: %v", err)
@@ -94,14 +94,14 @@ func (e *Engine) processEvent(ctx context.Context, ev telemetry.PlayerTelemetry)
 		metrics.FeaturesPublished.Inc()
 	}
 
-	alerts := Evaluate(fv)
+	alerts := Evaluate(features)
 	for _, alert := range alerts {
 		alertData, err := json.Marshal(alert)
 		if err != nil {
 			log.Printf("marshal alert error: %v", err)
 			continue
 		}
-		err = e.alertWriter.WriteMessages(ctx, kafka.Message{
+		err = engine.alertWriter.WriteMessages(ctx, kafka.Message{
 			Key:   []byte(alert.PlayerID),
 			Value: alertData,
 		})
@@ -113,7 +113,7 @@ func (e *Engine) processEvent(ctx context.Context, ev telemetry.PlayerTelemetry)
 	}
 }
 
-func (e *Engine) cleanupLoop(ctx context.Context) {
+func (engine *Engine) cleanupLoop(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
@@ -122,25 +122,25 @@ func (e *Engine) cleanupLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			e.mu.Lock()
+			engine.mu.Lock()
 			now := time.Now()
-			for id, slot := range e.processors {
-				if now.Sub(slot.lastSeen) > e.playerTimeout {
-					delete(e.processors, id)
+			for playerID, slot := range engine.processors {
+				if now.Sub(slot.lastSeen) > engine.playerTimeout {
+					delete(engine.processors, playerID)
 					metrics.FeatureActivePlayers.Dec()
-					log.Printf("cleaned up feature processor: %s", id)
+					log.Printf("cleaned up feature processor: %s", playerID)
 				}
 			}
-			e.mu.Unlock()
+			engine.mu.Unlock()
 		}
 	}
 }
 
-func (e *Engine) Close() {
-	if e.featureWriter != nil {
-		e.featureWriter.Close()
+func (engine *Engine) Close() {
+	if engine.featureWriter != nil {
+		engine.featureWriter.Close()
 	}
-	if e.alertWriter != nil {
-		e.alertWriter.Close()
+	if engine.alertWriter != nil {
+		engine.alertWriter.Close()
 	}
 }

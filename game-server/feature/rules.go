@@ -16,7 +16,7 @@ type Rule struct {
 	CheatType  string
 	Confidence float64
 	Threshold  float64
-	Check      func(fv FeatureVector) (triggered bool, value float64)
+	Check      func(features FeatureVector) (triggered bool, value float64)
 }
 
 var allRules = []Rule{
@@ -25,8 +25,8 @@ var allRules = []Rule{
 		CheatType:  "speedhack",
 		Confidence: 0.95,
 		Threshold:  7.0,
-		Check: func(fv FeatureVector) (bool, float64) {
-			return fv.SpeedMax1s > 7.0, fv.SpeedMax1s
+		Check: func(features FeatureVector) (bool, float64) {
+			return features.SpeedMax1s > 7.0, features.SpeedMax1s
 		},
 	},
 	{
@@ -34,8 +34,8 @@ var allRules = []Rule{
 		CheatType:  "aimbot",
 		Confidence: 0.95,
 		Threshold:  2.0,
-		Check: func(fv FeatureVector) (bool, float64) {
-			return fv.AimDeltaMax1s > 2.0, fv.AimDeltaMax1s
+		Check: func(features FeatureVector) (bool, float64) {
+			return features.AimDeltaMax1s > 2.0, features.AimDeltaMax1s
 		},
 	},
 	{
@@ -43,8 +43,8 @@ var allRules = []Rule{
 		CheatType:  "aimbot",
 		Confidence: 0.90,
 		Threshold:  0.85,
-		Check: func(fv FeatureVector) (bool, float64) {
-			return fv.HitRate5s > 0.85 && fv.ShotsFired5s > 30, fv.HitRate5s
+		Check: func(features FeatureVector) (bool, float64) {
+			return features.HitRate5s > 0.85 && features.ShotsFired5s > 30, features.HitRate5s
 		},
 	},
 	{
@@ -52,8 +52,8 @@ var allRules = []Rule{
 		CheatType:  "aimbot",
 		Confidence: 0.90,
 		Threshold:  0.90,
-		Check: func(fv FeatureVector) (bool, float64) {
-			return fv.AimLockRatio5s > 0.90 && fv.EnemiesVisible > 0, fv.AimLockRatio5s
+		Check: func(features FeatureVector) (bool, float64) {
+			return features.AimLockRatio5s > 0.90 && features.EnemiesVisible > 0, features.AimLockRatio5s
 		},
 	},
 	{
@@ -61,8 +61,8 @@ var allRules = []Rule{
 		CheatType:  "wallhack",
 		Confidence: 0.90,
 		Threshold:  0.60,
-		Check: func(fv FeatureVector) (bool, float64) {
-			return fv.PrefireRatio5s > 0.60 && fv.ShotsFired5s > 20, fv.PrefireRatio5s
+		Check: func(features FeatureVector) (bool, float64) {
+			return features.PrefireRatio5s > 0.60 && features.ShotsFired5s > 20, features.PrefireRatio5s
 		},
 	},
 	{
@@ -70,26 +70,26 @@ var allRules = []Rule{
 		CheatType:  "triggerbot",
 		Confidence: 0.90,
 		Threshold:  3.0,
-		Check: func(fv FeatureVector) (bool, float64) {
-			return fv.ReactionTimeMean5s > 0 && fv.ReactionTimeMean5s < 3.0 && fv.ShotsFired5s > 10, fv.ReactionTimeMean5s
+		Check: func(features FeatureVector) (bool, float64) {
+			return features.ReactionTimeMean5s > 0 && features.ReactionTimeMean5s < 3.0 && features.ShotsFired5s > 10, features.ReactionTimeMean5s
 		},
 	},
 }
 
-func Evaluate(fv FeatureVector) []AlertEvent {
+func Evaluate(features FeatureVector) []AlertEvent {
 	var alerts []AlertEvent
-	for _, r := range allRules {
-		triggered, value := r.Check(fv)
+	for _, rule := range allRules {
+		triggered, value := rule.Check(features)
 		if triggered {
 			alerts = append(alerts, AlertEvent{
-				Timestamp:  fv.Timestamp,
-				PlayerID:   fv.PlayerID,
+				Timestamp:  features.Timestamp,
+				PlayerID:   features.PlayerID,
 				Source:     "rule-engine",
-				Rule:       r.Name,
-				CheatType:  r.CheatType,
-				Confidence: r.Confidence,
+				Rule:       rule.Name,
+				CheatType:  rule.CheatType,
+				Confidence: rule.Confidence,
 				Value:      value,
-				Threshold:  r.Threshold,
+				Threshold:  rule.Threshold,
 			})
 		}
 	}
