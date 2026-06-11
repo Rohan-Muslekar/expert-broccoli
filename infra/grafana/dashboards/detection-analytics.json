@@ -174,7 +174,7 @@
     },
     {
       "id": 10,
-      "type": "histogram",
+      "type": "heatmap",
       "title": "Anomaly Score Distribution",
       "gridPos": { "x": 0, "y": 20, "w": 10, "h": 8 },
       "fieldConfig": {
@@ -185,7 +185,7 @@
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "ml_autoencoder_anomaly_score_bucket",
+          "expr": "rate(ml_autoencoder_anomaly_score_bucket[1m])",
           "format": "heatmap",
           "refId": "A"
         }
