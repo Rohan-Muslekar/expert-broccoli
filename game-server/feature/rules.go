@@ -1,24 +1,31 @@
-package rules
+package feature
 
-import (
-	"cheat-detection/feature-engine/engine"
-)
+type AlertEvent struct {
+	Timestamp  int64   `json:"ts"`
+	PlayerID   string  `json:"player_id"`
+	Source     string  `json:"source"`
+	Rule       string  `json:"rule"`
+	CheatType  string  `json:"cheat_type"`
+	Confidence float64 `json:"confidence"`
+	Value      float64 `json:"value"`
+	Threshold  float64 `json:"threshold"`
+}
 
 type Rule struct {
 	Name       string
 	CheatType  string
 	Confidence float64
 	Threshold  float64
-	Check      func(fv engine.FeatureVector) (triggered bool, value float64)
+	Check      func(fv FeatureVector) (triggered bool, value float64)
 }
 
-var All = []Rule{
+var allRules = []Rule{
 	{
 		Name:       "speed_cap",
 		CheatType:  "speedhack",
 		Confidence: 0.95,
 		Threshold:  7.0,
-		Check: func(fv engine.FeatureVector) (bool, float64) {
+		Check: func(fv FeatureVector) (bool, float64) {
 			return fv.SpeedMax1s > 7.0, fv.SpeedMax1s
 		},
 	},
@@ -27,7 +34,7 @@ var All = []Rule{
 		CheatType:  "aimbot",
 		Confidence: 0.95,
 		Threshold:  2.0,
-		Check: func(fv engine.FeatureVector) (bool, float64) {
+		Check: func(fv FeatureVector) (bool, float64) {
 			return fv.AimDeltaMax1s > 2.0, fv.AimDeltaMax1s
 		},
 	},
@@ -36,7 +43,7 @@ var All = []Rule{
 		CheatType:  "aimbot",
 		Confidence: 0.90,
 		Threshold:  0.85,
-		Check: func(fv engine.FeatureVector) (bool, float64) {
+		Check: func(fv FeatureVector) (bool, float64) {
 			return fv.HitRate5s > 0.85 && fv.ShotsFired5s > 30, fv.HitRate5s
 		},
 	},
@@ -45,7 +52,7 @@ var All = []Rule{
 		CheatType:  "aimbot",
 		Confidence: 0.90,
 		Threshold:  0.90,
-		Check: func(fv engine.FeatureVector) (bool, float64) {
+		Check: func(fv FeatureVector) (bool, float64) {
 			return fv.AimLockRatio5s > 0.90 && fv.EnemiesVisible > 0, fv.AimLockRatio5s
 		},
 	},
@@ -54,7 +61,7 @@ var All = []Rule{
 		CheatType:  "wallhack",
 		Confidence: 0.90,
 		Threshold:  0.60,
-		Check: func(fv engine.FeatureVector) (bool, float64) {
+		Check: func(fv FeatureVector) (bool, float64) {
 			return fv.PrefireRatio5s > 0.60 && fv.ShotsFired5s > 20, fv.PrefireRatio5s
 		},
 	},
@@ -63,18 +70,18 @@ var All = []Rule{
 		CheatType:  "triggerbot",
 		Confidence: 0.90,
 		Threshold:  3.0,
-		Check: func(fv engine.FeatureVector) (bool, float64) {
+		Check: func(fv FeatureVector) (bool, float64) {
 			return fv.ReactionTimeMean5s > 0 && fv.ReactionTimeMean5s < 3.0 && fv.ShotsFired5s > 10, fv.ReactionTimeMean5s
 		},
 	},
 }
 
-func Evaluate(fv engine.FeatureVector) []engine.AlertEvent {
-	var alerts []engine.AlertEvent
-	for _, r := range All {
+func Evaluate(fv FeatureVector) []AlertEvent {
+	var alerts []AlertEvent
+	for _, r := range allRules {
 		triggered, value := r.Check(fv)
 		if triggered {
-			alerts = append(alerts, engine.AlertEvent{
+			alerts = append(alerts, AlertEvent{
 				Timestamp:  fv.Timestamp,
 				PlayerID:   fv.PlayerID,
 				Source:     "rule-engine",

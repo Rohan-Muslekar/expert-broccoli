@@ -1,7 +1,9 @@
-package engine
+package feature
 
 import (
 	"math"
+
+	"cheat-detection/game-server/telemetry"
 )
 
 const (
@@ -10,19 +12,45 @@ const (
 	Window30s = 1800
 )
 
+type FeatureVector struct {
+	telemetry.PlayerTelemetry
+
+	AimDeltaMean1s         float64 `json:"aim_delta_mean_1s"`
+	AimDeltaMean5s         float64 `json:"aim_delta_mean_5s"`
+	AimDeltaMax1s          float64 `json:"aim_delta_max_1s"`
+	AimSnapCount5s         int     `json:"aim_snap_count_5s"`
+	AimToEnemyOffsetMean5s float64 `json:"aim_to_enemy_offset_mean_5s"`
+
+	HitRate5s         float64 `json:"hit_rate_5s"`
+	HitRate30s        float64 `json:"hit_rate_30s"`
+	ShotsFired5s      int     `json:"shots_fired_5s"`
+	KillsPer30s       int     `json:"kills_per_30s"`
+	TimeToKillMean30s float64 `json:"time_to_kill_mean_30s"`
+
+	SpeedMean1s            float64 `json:"speed_mean_1s"`
+	SpeedMean5s            float64 `json:"speed_mean_5s"`
+	SpeedMax1s             float64 `json:"speed_max_1s"`
+	DirectionChangeCount5s int     `json:"direction_change_count_5s"`
+
+	AimLockRatio5s       float64 `json:"aim_lock_ratio_5s"`
+	PrefireRatio5s       float64 `json:"prefire_ratio_5s"`
+	ReactionTimeMean5s   float64 `json:"reaction_time_mean_5s"`
+	EnemyTrackingScore5s float64 `json:"enemy_tracking_score_5s"`
+}
+
 type PlayerProcessor struct {
 	PlayerID string
-	buffer   []PlayerTelemetry
+	buffer   []telemetry.PlayerTelemetry
 }
 
 func NewPlayerProcessor(playerID string) *PlayerProcessor {
 	return &PlayerProcessor{
 		PlayerID: playerID,
-		buffer:   make([]PlayerTelemetry, 0, Window30s),
+		buffer:   make([]telemetry.PlayerTelemetry, 0, Window30s),
 	}
 }
 
-func (p *PlayerProcessor) Process(ev PlayerTelemetry) FeatureVector {
+func (p *PlayerProcessor) Process(ev telemetry.PlayerTelemetry) FeatureVector {
 	if len(p.buffer) >= Window30s {
 		p.buffer = p.buffer[1:]
 	}
@@ -32,50 +60,25 @@ func (p *PlayerProcessor) Process(ev PlayerTelemetry) FeatureVector {
 	w5 := p.window(Window5s)
 	w30 := p.window(Window30s)
 
-	fv := FeatureVector{
-		Timestamp:           ev.Timestamp,
-		PlayerID:            ev.PlayerID,
-		Tick:                ev.Tick,
-		PosX:                ev.PosX,
-		PosY:                ev.PosY,
-		VelX:                ev.VelX,
-		VelY:                ev.VelY,
-		AimAngle:            ev.AimAngle,
-		AimDelta:            ev.AimDelta,
-		IsShooting:          ev.IsShooting,
-		HitTarget:           ev.HitTarget,
-		Health:              ev.Health,
-		IsAlive:             ev.IsAlive,
-		NearestEnemyDist:    ev.NearestEnemyDist,
-		NearestEnemyAngle:   ev.NearestEnemyAngle,
-		NearestEnemyVisible: ev.NearestEnemyVisible,
-		AimToEnemyOffset:    ev.AimToEnemyOffset,
-		TimeSinceVisible:    ev.TimeSinceVisible,
-		EnemiesVisible:      ev.EnemiesVisible,
-		CheatLabel:          ev.CheatLabel,
-	}
+	fv := FeatureVector{PlayerTelemetry: ev}
 
-	// Aim dynamics
-	fv.AimDeltaMean1s = meanFloat(w1, func(e PlayerTelemetry) float64 { return e.AimDelta })
-	fv.AimDeltaMean5s = meanFloat(w5, func(e PlayerTelemetry) float64 { return e.AimDelta })
-	fv.AimDeltaMax1s = maxFloat(w1, func(e PlayerTelemetry) float64 { return e.AimDelta })
-	fv.AimSnapCount5s = countWhere(w5, func(e PlayerTelemetry) bool { return e.AimDelta > 0.5 })
-	fv.AimToEnemyOffsetMean5s = meanFloat(w5, func(e PlayerTelemetry) float64 { return e.AimToEnemyOffset })
+	fv.AimDeltaMean1s = meanFloat(w1, func(e telemetry.PlayerTelemetry) float64 { return e.AimDelta })
+	fv.AimDeltaMean5s = meanFloat(w5, func(e telemetry.PlayerTelemetry) float64 { return e.AimDelta })
+	fv.AimDeltaMax1s = maxFloat(w1, func(e telemetry.PlayerTelemetry) float64 { return e.AimDelta })
+	fv.AimSnapCount5s = countWhere(w5, func(e telemetry.PlayerTelemetry) bool { return e.AimDelta > 0.5 })
+	fv.AimToEnemyOffsetMean5s = meanFloat(w5, func(e telemetry.PlayerTelemetry) float64 { return e.AimToEnemyOffset })
 
-	// Combat stats
 	fv.HitRate5s = hitRate(w5)
 	fv.HitRate30s = hitRate(w30)
-	fv.ShotsFired5s = countWhere(w5, func(e PlayerTelemetry) bool { return e.IsShooting })
+	fv.ShotsFired5s = countWhere(w5, func(e telemetry.PlayerTelemetry) bool { return e.IsShooting })
 	fv.KillsPer30s = countKills(w30)
 	fv.TimeToKillMean30s = meanKillSequenceLength(w30)
 
-	// Movement profile
-	fv.SpeedMean1s = meanFloat(w1, func(e PlayerTelemetry) float64 { return speed(e) })
-	fv.SpeedMean5s = meanFloat(w5, func(e PlayerTelemetry) float64 { return speed(e) })
-	fv.SpeedMax1s = maxFloat(w1, func(e PlayerTelemetry) float64 { return speed(e) })
+	fv.SpeedMean1s = meanFloat(w1, func(e telemetry.PlayerTelemetry) float64 { return speed(e) })
+	fv.SpeedMean5s = meanFloat(w5, func(e telemetry.PlayerTelemetry) float64 { return speed(e) })
+	fv.SpeedMax1s = maxFloat(w1, func(e telemetry.PlayerTelemetry) float64 { return speed(e) })
 	fv.DirectionChangeCount5s = directionChanges(w5)
 
-	// Spatial correlation
 	fv.AimLockRatio5s = aimLockRatio(w5)
 	fv.PrefireRatio5s = prefireRatio(w5)
 	fv.ReactionTimeMean5s = reactionTimeMean(w5)
@@ -84,18 +87,18 @@ func (p *PlayerProcessor) Process(ev PlayerTelemetry) FeatureVector {
 	return fv
 }
 
-func (p *PlayerProcessor) window(size int) []PlayerTelemetry {
+func (p *PlayerProcessor) window(size int) []telemetry.PlayerTelemetry {
 	if len(p.buffer) <= size {
 		return p.buffer
 	}
 	return p.buffer[len(p.buffer)-size:]
 }
 
-func speed(e PlayerTelemetry) float64 {
+func speed(e telemetry.PlayerTelemetry) float64 {
 	return math.Sqrt(e.VelX*e.VelX + e.VelY*e.VelY)
 }
 
-func meanFloat(data []PlayerTelemetry, f func(PlayerTelemetry) float64) float64 {
+func meanFloat(data []telemetry.PlayerTelemetry, f func(telemetry.PlayerTelemetry) float64) float64 {
 	if len(data) == 0 {
 		return 0
 	}
@@ -106,7 +109,7 @@ func meanFloat(data []PlayerTelemetry, f func(PlayerTelemetry) float64) float64 
 	return sum / float64(len(data))
 }
 
-func maxFloat(data []PlayerTelemetry, f func(PlayerTelemetry) float64) float64 {
+func maxFloat(data []telemetry.PlayerTelemetry, f func(telemetry.PlayerTelemetry) float64) float64 {
 	if len(data) == 0 {
 		return 0
 	}
@@ -120,7 +123,7 @@ func maxFloat(data []PlayerTelemetry, f func(PlayerTelemetry) float64) float64 {
 	return m
 }
 
-func countWhere(data []PlayerTelemetry, pred func(PlayerTelemetry) bool) int {
+func countWhere(data []telemetry.PlayerTelemetry, pred func(telemetry.PlayerTelemetry) bool) int {
 	n := 0
 	for _, e := range data {
 		if pred(e) {
@@ -130,7 +133,7 @@ func countWhere(data []PlayerTelemetry, pred func(PlayerTelemetry) bool) int {
 	return n
 }
 
-func hitRate(data []PlayerTelemetry) float64 {
+func hitRate(data []telemetry.PlayerTelemetry) float64 {
 	shots := 0
 	hits := 0
 	for _, e := range data {
@@ -147,7 +150,7 @@ func hitRate(data []PlayerTelemetry) float64 {
 	return float64(hits) / float64(shots)
 }
 
-func countKills(data []PlayerTelemetry) int {
+func countKills(data []telemetry.PlayerTelemetry) int {
 	kills := 0
 	inHitSequence := false
 	for _, e := range data {
@@ -164,7 +167,7 @@ func countKills(data []PlayerTelemetry) int {
 	return kills
 }
 
-func meanKillSequenceLength(data []PlayerTelemetry) float64 {
+func meanKillSequenceLength(data []telemetry.PlayerTelemetry) float64 {
 	var lengths []int
 	current := 0
 	for _, e := range data {
@@ -188,7 +191,7 @@ func meanKillSequenceLength(data []PlayerTelemetry) float64 {
 	return float64(sum) / float64(len(lengths))
 }
 
-func directionChanges(data []PlayerTelemetry) int {
+func directionChanges(data []telemetry.PlayerTelemetry) int {
 	if len(data) < 2 {
 		return 0
 	}
@@ -212,7 +215,7 @@ func directionChanges(data []PlayerTelemetry) int {
 	return count
 }
 
-func aimLockRatio(data []PlayerTelemetry) float64 {
+func aimLockRatio(data []telemetry.PlayerTelemetry) float64 {
 	visibleTicks := 0
 	lockedTicks := 0
 	for _, e := range data {
@@ -229,7 +232,7 @@ func aimLockRatio(data []PlayerTelemetry) float64 {
 	return float64(lockedTicks) / float64(visibleTicks)
 }
 
-func prefireRatio(data []PlayerTelemetry) float64 {
+func prefireRatio(data []telemetry.PlayerTelemetry) float64 {
 	shootingTicks := 0
 	prefireTicks := 0
 	for _, e := range data {
@@ -246,7 +249,7 @@ func prefireRatio(data []PlayerTelemetry) float64 {
 	return float64(prefireTicks) / float64(shootingTicks)
 }
 
-func reactionTimeMean(data []PlayerTelemetry) float64 {
+func reactionTimeMean(data []telemetry.PlayerTelemetry) float64 {
 	if len(data) < 2 {
 		return 0
 	}
@@ -275,7 +278,7 @@ func reactionTimeMean(data []PlayerTelemetry) float64 {
 	return float64(sum) / float64(len(reactionTimes))
 }
 
-func enemyTrackingScore(data []PlayerTelemetry) float64 {
+func enemyTrackingScore(data []telemetry.PlayerTelemetry) float64 {
 	if len(data) < 3 {
 		return 0
 	}

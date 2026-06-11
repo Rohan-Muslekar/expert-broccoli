@@ -16,6 +16,10 @@ type Config struct {
 	KafkaBrokers     []string
 	RespawnDelaySec  int
 	MetricsEnabled   bool
+
+	FeatureProduceTopic string
+	FeatureAlertsTopic  string
+	FeaturePlayerTimeout int
 }
 
 func Load() Config {
@@ -29,7 +33,19 @@ func Load() Config {
 		KafkaBrokers:     getEnvStringSlice("KAFKA_BROKERS", "localhost:9092"),
 		RespawnDelaySec:  getEnvInt("RESPAWN_DELAY_SEC", 3),
 		MetricsEnabled:   getEnvBool("METRICS_ENABLED", true),
+
+		FeatureProduceTopic:  getEnvString("PRODUCE_TOPIC", "features.computed"),
+		FeatureAlertsTopic:   getEnvString("ALERTS_TOPIC", "alerts.detections"),
+		FeaturePlayerTimeout: getEnvInt("PLAYER_TIMEOUT_SEC", 60),
 	}
+}
+
+func getEnvString(key, fallback string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		return fallback
+	}
+	return val
 }
 
 func getEnvInt(key string, fallback int) int {

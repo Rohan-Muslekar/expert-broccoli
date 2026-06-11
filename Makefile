@@ -11,7 +11,6 @@ logs:
 
 build:
 	cd game-server && go build -o game-server .
-	cd feature-engine && go build -o feature-engine .
 
 run-local:
 	cd game-server && KAFKA_ENABLED=false ./game-server
@@ -21,5 +20,4 @@ kafka-topics:
 
 clean:
 	cd game-server && rm -f game-server
-	cd feature-engine && rm -f feature-engine
 	docker compose down -v

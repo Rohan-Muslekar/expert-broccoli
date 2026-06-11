@@ -37,4 +37,25 @@ var (
 		Name: "kafka_publish_errors_total",
 		Help: "Total Kafka publish errors",
 	})
+
+	FeaturesPublished = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feature_engine_features_published_total",
+		Help: "Feature vectors published to Kafka",
+	})
+
+	FeatureAlertsFired = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "feature_engine_alerts_fired_total",
+		Help: "Alerts fired by rule name",
+	}, []string{"rule"})
+
+	FeatureProcessingDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "feature_engine_processing_duration_seconds",
+		Help:    "Per-event feature processing latency",
+		Buckets: prometheus.DefBuckets,
+	})
+
+	FeatureActivePlayers = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "feature_engine_active_players",
+		Help: "Active player feature processors",
+	})
 )
