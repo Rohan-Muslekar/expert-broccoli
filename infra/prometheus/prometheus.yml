@@ -7,10 +7,6 @@ scrape_configs:
     static_configs:
       - targets: ["game-server:8080"]
 
-  - job_name: feature-engine
-    static_configs:
-      - targets: ["feature-engine:9090"]
-
   - job_name: ml-service
     static_configs:
       - targets: ["ml-service:8000"]

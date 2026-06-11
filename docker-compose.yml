@@ -42,6 +42,8 @@ services:
       BOT_COUNT: "8"
       BOT_CHEATS_ENABLED: "true"
       METRICS_ENABLED: "true"
+      PRODUCE_TOPIC: "features.computed"
+      ALERTS_TOPIC: "alerts.detections"
     depends_on:
       kafka:
         condition: service_healthy
@@ -52,21 +54,6 @@ services:
       - "80:80"
     depends_on:
       - game-server
-
-  # --- Feature Engine (Go) ---
-  feature-engine:
-    build: ./feature-engine
-    ports:
-      - "9090:9090"
-    environment:
-      KAFKA_BROKERS: "kafka:9092"
-      CONSUME_TOPIC: "telemetry.raw"
-      PRODUCE_TOPIC: "features.computed"
-      ALERTS_TOPIC: "alerts.detections"
-      METRICS_PORT: "9090"
-    depends_on:
-      kafka:
-        condition: service_healthy
 
   # --- ML Service (Python) ---
   ml-service:

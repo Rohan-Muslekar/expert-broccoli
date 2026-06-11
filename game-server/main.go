@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"cheat-detection/game-server/config"
+	"cheat-detection/game-server/feature"
 	"cheat-detection/game-server/metrics"
 	"cheat-detection/game-server/server"
 	"cheat-detection/game-server/telemetry"
@@ -31,9 +32,30 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	var featureEngine *feature.Engine
+	featureCh := make(chan telemetry.PlayerTelemetry, 1024)
+	if cfg.KafkaEnabled {
+		featureEngine = feature.NewEngine(
+			cfg.KafkaBrokers,
+			cfg.FeatureProduceTopic,
+			cfg.FeatureAlertsTopic,
+			cfg.FeaturePlayerTimeout,
+		)
+		defer featureEngine.Close()
+		go featureEngine.Run(ctx, featureCh)
+		log.Printf("feature engine started (produce=%s, alerts=%s)",
+			cfg.FeatureProduceTopic, cfg.FeatureAlertsTopic)
+	}
+
 	go func() {
 		for t := range game.TelemetryCh() {
 			producer.PublishTelemetry(ctx, t)
+			if featureEngine != nil {
+				select {
+				case featureCh <- t:
+				default:
+				}
+			}
 		}
 	}()
 	go func() {
