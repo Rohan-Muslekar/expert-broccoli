@@ -65,12 +65,15 @@ services:
       CONSUME_TOPIC: "features.computed"
       ALERTS_TOPIC: "alerts.detections"
       MODEL_DIR: "/app/saved_models"
-      METRICS_PORT: "8000"
+      AUTO_TRAIN_THRESHOLD: "0"
+      ANOMALY_STD_MULTIPLIER: "3.0"
+      ALERT_COOLDOWN_SECONDS: "5"
+      XGBOOST_CONFIDENCE_THRESHOLD: "0.8"
     volumes:
-      - ./ml-service/saved_models:/app/saved_models
+      - ml-models:/app/saved_models
     depends_on:
-      kafka:
-        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
   # --- Observability ---
   prometheus:
@@ -104,3 +107,4 @@ services:
 volumes:
   prometheus_data:
   grafana_data:
+  ml-models:
