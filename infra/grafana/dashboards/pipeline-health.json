@@ -10,12 +10,14 @@
   "schemaVersion": 39,
   "panels": [
     {
+      "id": 1,
       "type": "row",
       "title": "Game Server",
       "collapsed": false,
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
     },
     {
+      "id": 2,
       "type": "gauge",
       "title": "Active Players",
       "gridPos": { "x": 0, "y": 1, "w": 4, "h": 8 },
@@ -46,6 +48,7 @@
       ]
     },
     {
+      "id": 3,
       "type": "timeseries",
       "title": "Tick Duration",
       "gridPos": { "x": 4, "y": 1, "w": 14, "h": 8 },
@@ -65,6 +68,7 @@
       ]
     },
     {
+      "id": 4,
       "type": "stat",
       "title": "WebSocket Connections",
       "gridPos": { "x": 18, "y": 1, "w": 6, "h": 8 },
@@ -87,12 +91,14 @@
       ]
     },
     {
+      "id": 5,
       "type": "row",
       "title": "Kafka & Feature Engine",
       "collapsed": false,
       "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 }
     },
     {
+      "id": 6,
       "type": "timeseries",
       "title": "Telemetry Rate",
       "gridPos": { "x": 0, "y": 10, "w": 6, "h": 8 },
@@ -111,6 +117,7 @@
       ]
     },
     {
+      "id": 7,
       "type": "timeseries",
       "title": "Features Published Rate",
       "gridPos": { "x": 6, "y": 10, "w": 6, "h": 8 },
@@ -128,6 +135,7 @@
       ]
     },
     {
+      "id": 8,
       "type": "stat",
       "title": "Kafka Errors",
       "gridPos": { "x": 12, "y": 10, "w": 4, "h": 8 },
@@ -153,12 +161,13 @@
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "kafka_publish_errors_total",
+          "expr": "increase(kafka_publish_errors_total[5m])",
           "refId": "A"
         }
       ]
     },
     {
+      "id": 9,
       "type": "timeseries",
       "title": "Feature Processing Latency",
       "gridPos": { "x": 16, "y": 10, "w": 8, "h": 8 },
@@ -178,12 +187,14 @@
       ]
     },
     {
+      "id": 10,
       "type": "row",
       "title": "System Status",
       "collapsed": false,
       "gridPos": { "x": 0, "y": 19, "w": 24, "h": 1 }
     },
     {
+      "id": 11,
       "type": "gauge",
       "title": "Feature Active Players",
       "gridPos": { "x": 0, "y": 20, "w": 8, "h": 8 },
@@ -206,6 +217,7 @@
       ]
     },
     {
+      "id": 12,
       "type": "stat",
       "title": "XGBoost Model",
       "gridPos": { "x": 8, "y": 20, "w": 8, "h": 8 },
@@ -221,8 +233,8 @@
             {
               "type": "value",
               "options": {
-                "0": { "text": "Not Loaded", "color": "red" },
-                "1": { "text": "Loaded", "color": "green" }
+                "0": { "text": "Not Loaded", "color": "red", "index": 0 },
+                "1": { "text": "Loaded", "color": "green", "index": 1 }
               }
             }
           ]
@@ -237,6 +249,7 @@
       ]
     },
     {
+      "id": 13,
       "type": "stat",
       "title": "Autoencoder Model",
       "gridPos": { "x": 16, "y": 20, "w": 8, "h": 8 },
@@ -252,8 +265,8 @@
             {
               "type": "value",
               "options": {
-                "0": { "text": "Not Loaded", "color": "red" },
-                "1": { "text": "Loaded", "color": "green" }
+                "0": { "text": "Not Loaded", "color": "red", "index": 0 },
+                "1": { "text": "Loaded", "color": "green", "index": 1 }
               }
             }
           ]
