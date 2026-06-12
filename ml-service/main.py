@@ -123,3 +123,29 @@ def train(min_samples: int = 5000):
         consumer_instance.load_models(xgboost_classifier, autoencoder, alert_combiner, normalizer)
 
     return {"status": "trained", "metadata": metadata}
+
+
+@app.post("/train/cs2cd")
+def train_cs2cd(min_cs2cd_samples: int = 1000):
+    if not config.cs2cd_dataset_path:
+        raise HTTPException(status_code=400, detail="CS2CD_DATASET_PATH not configured")
+
+    if not os.path.isdir(config.cs2cd_dataset_path):
+        raise HTTPException(
+            status_code=400,
+            detail=f"CS2CD dataset not found at {config.cs2cd_dataset_path}",
+        )
+
+    live_samples = collector.get_all() if collector.count() > 0 else None
+    pipeline = TrainingPipeline(config.model_dir, config.anomaly_std_multiplier)
+    metadata = pipeline.train_from_cs2cd(
+        config.cs2cd_dataset_path,
+        live_samples=live_samples,
+        min_cs2cd_samples=min_cs2cd_samples,
+    )
+
+    xgboost_classifier, autoencoder, alert_combiner, normalizer = _try_load_models()
+    if consumer_instance and xgboost_classifier:
+        consumer_instance.load_models(xgboost_classifier, autoencoder, alert_combiner, normalizer)
+
+    return {"status": "trained", "metadata": metadata}
