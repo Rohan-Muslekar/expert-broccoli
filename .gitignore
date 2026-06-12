@@ -46,3 +46,6 @@ grafana_data/
 
 # Superpowers working docs
 docs/superpowers/
+
+# CS2CD dataset files
+datasets/
