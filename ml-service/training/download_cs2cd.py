@@ -6,7 +6,7 @@ from huggingface_hub import HfApi, hf_hub_download
 
 logger = logging.getLogger(__name__)
 
-REPO_ID = "VisioLab/CS2-Cheating-Detection"
+REPO_ID = "CS2CD/CS2CD.Counter-Strike_2_Cheat_Detection"
 REPO_TYPE = "dataset"
 
 
@@ -14,23 +14,23 @@ def download_cs2cd(output_dir: str, max_matches: int = 30):
     api = HfApi()
     all_files = api.list_repo_files(repo_id=REPO_ID, repo_type=REPO_TYPE)
 
-    cheater_csvs = sorted(
+    cheater_parquets = sorted(
         f for f in all_files
-        if "with_cheater_present" in f and f.endswith(".csv.gz")
+        if "with_cheater_present" in f and f.endswith(".parquet")
     )
-    clean_csvs = sorted(
+    clean_parquets = sorted(
         f for f in all_files
-        if "no_cheater_present" in f and f.endswith(".csv.gz")
+        if "no_cheater_present" in f and f.endswith(".parquet")
     )
 
     half = max_matches // 2
-    selected_cheater = cheater_csvs[:half]
-    selected_clean = clean_csvs[:half]
+    selected_cheater = cheater_parquets[:half]
+    selected_clean = clean_parquets[:half]
 
     selected_files = []
-    for csv_path in selected_cheater + selected_clean:
-        json_path = csv_path.replace(".csv.gz", ".json")
-        selected_files.append(csv_path)
+    for parquet_path in selected_cheater + selected_clean:
+        json_path = parquet_path.replace(".parquet", ".json")
+        selected_files.append(parquet_path)
         if json_path in all_files:
             selected_files.append(json_path)
 
