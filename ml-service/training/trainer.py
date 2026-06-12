@@ -7,10 +7,11 @@ import numpy as np
 from models.xgboost_model import XGBoostClassifier, FEATURE_NAMES
 from models.autoencoder import LSTMAutoencoder
 from training.normalizer import FeatureNormalizer
+from training.cs2_parser import load_cs2cd_dataset, extract_features_from_ticks
 
 logger = logging.getLogger(__name__)
 
-CHEAT_CLASSES = ["none", "aimbot", "speedhack", "wallhack", "triggerbot"]
+CHEAT_CLASSES = ["none", "cheater", "aimbot", "speedhack", "wallhack", "triggerbot"]
 SEQUENCE_LENGTH = 60
 
 
@@ -79,6 +80,27 @@ class TrainingPipeline:
             json.dump(metadata, metadata_file, indent=2)
 
         logger.info("All models saved to %s", self.model_dir)
+        return metadata
+
+    def train_from_cs2cd(self, cs2cd_path: str, live_samples: list[dict] | None = None, min_cs2cd_samples: int = 1000) -> dict:
+        cs2cd_ticks = load_cs2cd_dataset(cs2cd_path)
+        if not cs2cd_ticks:
+            raise ValueError(f"No ticks loaded from CS2CD dataset at {cs2cd_path}")
+
+        cs2cd_features = extract_features_from_ticks(cs2cd_ticks)
+        if len(cs2cd_features) < min_cs2cd_samples:
+            raise ValueError(f"Only {len(cs2cd_features)} CS2CD features extracted, need {min_cs2cd_samples}")
+
+        logger.info("CS2CD: %d feature vectors extracted", len(cs2cd_features))
+
+        all_samples = list(cs2cd_features)
+        if live_samples:
+            all_samples.extend(live_samples)
+            logger.info("Merged %d live samples, total: %d", len(live_samples), len(all_samples))
+
+        metadata = self.train_from_samples(all_samples)
+        metadata["cs2cd_samples"] = len(cs2cd_features)
+        metadata["live_samples"] = len(live_samples) if live_samples else 0
         return metadata
 
     def _make_sequences(self, features: np.ndarray, sequence_length: int) -> np.ndarray:
