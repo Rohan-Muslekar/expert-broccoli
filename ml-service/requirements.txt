@@ -9,4 +9,4 @@ prometheus-client==0.20.0
 xgboost==2.0.3
 joblib==1.4.2
 pytest==8.2.0
-huggingface-hub==0.23.0
+huggingface-hub>=0.23.0,<1.0
