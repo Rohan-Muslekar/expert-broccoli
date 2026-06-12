@@ -58,6 +58,8 @@ class InferenceConsumer:
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
         self._producer: KafkaProducer | None = None
+        self._retrain_lock = threading.Lock()
+        self._retrain_in_progress = False
 
     @property
     def inference_ready(self) -> bool:
@@ -113,6 +115,7 @@ class InferenceConsumer:
 
         if self.collector:
             self.collector.add(feature_vector)
+            self._maybe_auto_retrain()
 
         if not self.inference_ready:
             return
@@ -162,6 +165,45 @@ class InferenceConsumer:
             self._producer.send(self.config.alerts_topic, value=alert, key=player_id.encode("utf-8"))
             pm.alerts_published_total.labels(model=alert["model"]).inc()
             logger.info("Alert published: %s -> %s (%.2f)", player_id, alert["cheat_type"], alert["confidence"])
+
+    def _maybe_auto_retrain(self):
+        if not self.inference_ready:
+            return
+        if self.config.auto_train_threshold <= 0:
+            return
+        if not self.collector:
+            return
+        sample_count = self.collector.count()
+        if sample_count == 0 or sample_count % self.config.auto_train_threshold != 0:
+            return
+        if not self._retrain_lock.acquire(blocking=False):
+            return
+        try:
+            if self._retrain_in_progress:
+                return
+            self._retrain_in_progress = True
+            logger.info("Auto-retrain triggered at %d samples", sample_count)
+            retrain_thread = threading.Thread(target=self._run_retrain, daemon=True)
+            retrain_thread.start()
+        finally:
+            self._retrain_lock.release()
+
+    def _run_retrain(self):
+        try:
+            from training.trainer import TrainingPipeline
+            samples = self.collector.get_all()
+            pipeline = TrainingPipeline(self.config.model_dir, self.config.anomaly_std_multiplier)
+            metadata = pipeline.train_from_samples(samples)
+            logger.info("Auto-retrain complete: %s", metadata.get("xgboost_metrics"))
+
+            from main import _try_load_models
+            xgboost_classifier, autoencoder, alert_combiner, normalizer = _try_load_models()
+            if xgboost_classifier:
+                self.load_models(xgboost_classifier, autoencoder, alert_combiner, normalizer)
+        except Exception:
+            logger.exception("Auto-retrain failed")
+        finally:
+            self._retrain_in_progress = False
 
     def load_models(self, xgboost_classifier, autoencoder, alert_combiner, normalizer):
         from metrics import prometheus_metrics as pm

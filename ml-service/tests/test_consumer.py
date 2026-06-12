@@ -46,3 +46,55 @@ def test_buffer_returns_latest_features():
     latest = buffer.latest_features()
     assert latest is not None
     assert len(latest) == 18
+
+
+from unittest.mock import MagicMock, patch
+from consumer import InferenceConsumer
+
+
+def _make_mock_config(auto_train_threshold=0):
+    config = MagicMock()
+    config.auto_train_threshold = auto_train_threshold
+    config.model_dir = "/tmp/models"
+    config.anomaly_std_multiplier = 3.0
+    return config
+
+
+def test_auto_retrain_not_triggered_when_threshold_zero():
+    config = _make_mock_config(auto_train_threshold=0)
+    collector = MagicMock()
+    consumer = InferenceConsumer(config=config, collector=collector)
+    consumer._maybe_auto_retrain()
+
+
+def test_auto_retrain_triggered_at_threshold():
+    import time
+    config = _make_mock_config(auto_train_threshold=100)
+    collector = MagicMock()
+    collector.count.return_value = 100
+    consumer = InferenceConsumer(
+        config=config,
+        xgboost_classifier=MagicMock(),
+        autoencoder=MagicMock(),
+        alert_combiner=MagicMock(),
+        normalizer=MagicMock(),
+        collector=collector,
+    )
+    with patch.object(consumer, "_run_retrain") as mock_retrain:
+        consumer._maybe_auto_retrain()
+        # _run_retrain is invoked on a background thread; give it a moment to start
+        time.sleep(0.1)
+        mock_retrain.assert_called_once()
+
+
+def test_auto_retrain_skipped_when_not_at_threshold():
+    config = _make_mock_config(auto_train_threshold=100)
+    collector = MagicMock()
+    collector.count.return_value = 50
+    consumer = InferenceConsumer(
+        config=config,
+        xgboost_classifier=MagicMock(),
+        autoencoder=MagicMock(),
+        collector=collector,
+    )
+    consumer._maybe_auto_retrain()
