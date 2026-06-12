@@ -10,8 +10,8 @@ from training.feature_extraction import FeatureExtractor
 logger = logging.getLogger(__name__)
 
 
-def load_cs2cd_dataset(dataset_path: str) -> list[dict]:
-    all_ticks = []
+def iter_match_files(dataset_path: str) -> list[tuple[str, str]]:
+    match_files = []
     for subdir_name in ("with_cheater_present", "no_cheater_present"):
         subdir = os.path.join(dataset_path, subdir_name)
         if not os.path.isdir(subdir):
@@ -26,8 +26,15 @@ def load_cs2cd_dataset(dataset_path: str) -> list[dict]:
             if not os.path.exists(json_path):
                 logger.warning("No companion JSON for %s, skipping", parquet_filename)
                 continue
-            match_ticks = _parse_match(parquet_path, json_path)
-            all_ticks.extend(match_ticks)
+            match_files.append((parquet_path, json_path))
+    return match_files
+
+
+def load_cs2cd_dataset(dataset_path: str) -> list[dict]:
+    all_ticks = []
+    for parquet_path, json_path in iter_match_files(dataset_path):
+        match_ticks = _parse_match(parquet_path, json_path)
+        all_ticks.extend(match_ticks)
     logger.info("Loaded %d total ticks from CS2CD dataset", len(all_ticks))
     return all_ticks
 
@@ -168,7 +175,7 @@ def _compute_nearest_enemy(
     return nearest_dist, nearest_angle
 
 
-def extract_features_from_ticks(ticks: list[dict]) -> list[dict]:
+def extract_features_from_ticks(ticks: list[dict], sample_interval: int = 60) -> list[dict]:
     players: dict[str, list[dict]] = {}
     for tick in ticks:
         players.setdefault(tick["pid"], []).append(tick)
@@ -176,14 +183,17 @@ def extract_features_from_ticks(ticks: list[dict]) -> list[dict]:
     feature_vectors = []
     for player_id, player_ticks in players.items():
         extractor = FeatureExtractor(player_id)
+        ticks_since_last_sample = 0
         for tick in player_ticks:
             extractor.push(tick)
-            if len(extractor.buffer) >= 60:
+            ticks_since_last_sample += 1
+            if len(extractor.buffer) >= 60 and ticks_since_last_sample >= sample_interval:
                 features = extractor.compute()
                 features["pid"] = player_id
                 features["cheat_label"] = tick["cheat_label"]
                 features["ts"] = tick["ts"]
                 feature_vectors.append(features)
+                ticks_since_last_sample = 0
 
     logger.info("Extracted %d feature vectors from %d players", len(feature_vectors), len(players))
     return feature_vectors

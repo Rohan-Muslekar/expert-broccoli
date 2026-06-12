@@ -142,7 +142,7 @@ def test_load_cs2cd_dataset_walks_subdirectories():
 
 def test_extract_features_from_ticks_produces_vectors():
     ticks = []
-    for tick_num in range(120):
+    for tick_num in range(180):
         ticks.append({
             "ts": tick_num, "pid": "player_0", "tick": tick_num,
             "x": 0.0, "y": 0.0, "vx": 1.0, "vy": 0.0,
@@ -154,7 +154,7 @@ def test_extract_features_from_ticks_produces_vectors():
             "time_since_visible": 0.0, "enemies_visible": 0,
             "cheat_label": "none",
         })
-    features = extract_features_from_ticks(ticks)
+    features = extract_features_from_ticks(ticks, sample_interval=60)
     assert len(features) > 0
     assert features[0]["cheat_label"] == "none"
     assert "aim_delta_mean_1s" in features[0]

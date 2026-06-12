@@ -1,7 +1,6 @@
 import numpy as np
 import xgboost as xgb
 from sklearn.metrics import accuracy_score, f1_score, recall_score
-from sklearn.preprocessing import LabelEncoder
 
 
 FEATURE_NAMES = [
@@ -19,9 +18,12 @@ FEATURE_NAMES = [
 class XGBoostClassifier:
     def __init__(self, class_names: list[str]):
         self.class_names = class_names
-        self.label_encoder = LabelEncoder()
-        self.label_encoder.fit(class_names)
+        self.label_to_index = {name: i for i, name in enumerate(class_names)}
+        self.index_to_label = {i: name for i, name in enumerate(class_names)}
         self.model: xgb.XGBClassifier | None = None
+
+    def _encode(self, labels: np.ndarray) -> np.ndarray:
+        return np.array([self.label_to_index[label] for label in labels])
 
     def train(
         self,
@@ -30,22 +32,19 @@ class XGBoostClassifier:
         test_features: np.ndarray | None = None,
         test_labels: np.ndarray | None = None,
     ) -> dict:
-        encoded_labels = self.label_encoder.transform(labels)
+        encoded_labels = self._encode(labels)
         self.model = xgb.XGBClassifier(
-            objective="multi:softprob",
-            num_class=len(self.class_names),
             max_depth=6,
             learning_rate=0.1,
             n_estimators=200,
             subsample=0.8,
             colsample_bytree=0.8,
-            eval_metric="mlogloss",
         )
         self.model.fit(features, encoded_labels)
 
         eval_features = test_features if test_features is not None else features
         eval_labels = test_labels if test_labels is not None else labels
-        encoded_eval_labels = self.label_encoder.transform(eval_labels)
+        encoded_eval_labels = self._encode(eval_labels)
         predicted = self.model.predict(eval_features)
         return {
             "accuracy": float(accuracy_score(encoded_eval_labels, predicted)),
@@ -56,7 +55,7 @@ class XGBoostClassifier:
     def predict(self, features: np.ndarray) -> tuple[list[str], np.ndarray]:
         probabilities = self.model.predict_proba(features)
         predicted_indices = np.argmax(probabilities, axis=1)
-        predicted_labels = self.label_encoder.inverse_transform(predicted_indices).tolist()
+        predicted_labels = [self.index_to_label[i] for i in predicted_indices]
         return predicted_labels, probabilities
 
     def get_feature_importances(self) -> list[float]:
