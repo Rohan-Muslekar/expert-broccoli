@@ -1,10 +1,7 @@
 import gzip
 import json
-import math
 import os
 import tempfile
-
-import pytest
 
 from training.cs2_parser import (
     _identify_cheaters,

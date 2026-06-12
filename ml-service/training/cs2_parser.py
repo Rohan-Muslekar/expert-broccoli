@@ -1,4 +1,3 @@
-import gzip
 import json
 import logging
 import math
@@ -40,9 +39,9 @@ def _identify_cheaters(json_path: str) -> set[str]:
 
 
 def _parse_match(csv_gz_path: str, json_path: str) -> list[dict]:
-    cheater_steam_ids = _identify_cheaters(json_path)
     with open(json_path, "r") as f:
         metadata = json.load(f)
+    cheater_steam_ids = set(metadata.get("cheater_steamids", []))
     players = metadata.get("players", [])
     steamid_to_team = {p["steamid"]: p["team"] for p in players}
     team_list = [p["team"] for p in players]
@@ -100,7 +99,7 @@ def _parse_match(csv_gz_path: str, json_path: str) -> list[dict]:
             )
             nearest_dist, nearest_angle = _compute_nearest_enemy(
                 tick_rows, row_index, player_x, player_y,
-                player_team, steamid_to_team, steamid_list,
+                player_team, steamid_to_team,
             )
 
             aim_to_enemy_offset = abs(yaw - nearest_angle)
@@ -143,12 +142,13 @@ def _compute_nearest_enemy(
     player_y: float,
     player_team: str,
     steamid_to_team: dict[str, str],
-    steamid_list: list[str],
 ) -> tuple[float, float]:
     nearest_dist = 99999.0
     nearest_angle = 0.0
     for other_index, other_row in enumerate(tick_rows):
         if other_index == player_index:
+            continue
+        if not bool(other_row.get("is_alive", True)):
             continue
         other_steam_id = str(other_row.get("steamid", f"player_{other_index}"))
         other_team = steamid_to_team.get(other_steam_id, "")
