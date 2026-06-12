@@ -46,16 +46,22 @@ def _parse_match(parquet_path: str, json_path: str) -> list[dict]:
     prev_aim_by_player: dict[str, float] = {}
 
     try:
-        dataframe = pd.read_parquet(parquet_path)
+        full_dataframe = pd.read_parquet(parquet_path)
     except Exception:
         logger.exception("Failed to read %s", parquet_path)
         return []
 
     required_columns = {"X", "Y", "yaw", "health", "is_alive", "tick", "steamid"}
-    if not required_columns.issubset(set(dataframe.columns)):
-        missing = required_columns - set(dataframe.columns)
+    if not required_columns.issubset(set(full_dataframe.columns)):
+        missing = required_columns - set(full_dataframe.columns)
         logger.warning("Missing columns in %s: %s", parquet_path, missing)
         return []
+
+    keep_columns = ["tick", "steamid", "X", "Y", "yaw", "health", "is_alive", "FIRE", "spotted",
+                     "velocity_X", "velocity_Y", "team_name"]
+    available_columns = [c for c in keep_columns if c in full_dataframe.columns]
+    dataframe = full_dataframe[available_columns].copy()
+    del full_dataframe
 
     has_velocity = "velocity_X" in dataframe.columns and "velocity_Y" in dataframe.columns
     has_team = "team_name" in dataframe.columns
@@ -64,8 +70,10 @@ def _parse_match(parquet_path: str, json_path: str) -> list[dict]:
         tick_rows = tick_group.to_dict("records")
         for row_index, row in enumerate(tick_rows):
             steam_id = str(row.get("steamid", f"player_{row_index}"))
-            player_x = float(row.get("X", 0.0))
-            player_y = float(row.get("Y", 0.0))
+            raw_x = row.get("X", 0.0)
+            raw_y = row.get("Y", 0.0)
+            player_x = float(raw_x) if pd.notna(raw_x) else 0.0
+            player_y = float(raw_y) if pd.notna(raw_y) else 0.0
 
             velocity_x = 0.0
             velocity_y = 0.0
@@ -77,8 +85,10 @@ def _parse_match(parquet_path: str, json_path: str) -> list[dict]:
                 if pd.notna(raw_vy):
                     velocity_y = float(raw_vy)
 
-            yaw = float(row.get("yaw", 0.0))
-            health = int(float(row.get("health", 100)))
+            raw_yaw = row.get("yaw", 0.0)
+            yaw = float(raw_yaw) if pd.notna(raw_yaw) else 0.0
+            raw_health = row.get("health", 100)
+            health = int(float(raw_health)) if pd.notna(raw_health) else 100
             is_alive = bool(row.get("is_alive", True))
             is_firing = bool(row.get("FIRE", False))
             is_spotted = bool(row.get("spotted", False))
