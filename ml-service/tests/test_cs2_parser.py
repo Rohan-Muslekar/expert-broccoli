@@ -1,7 +1,8 @@
-import gzip
 import json
 import os
 import tempfile
+
+import pandas as pd
 
 from training.cs2_parser import (
     _identify_cheaters,
@@ -18,24 +19,17 @@ def _write_json(directory, filename, data):
     return path
 
 
-def _write_csv_gz(directory, filename, header, rows):
+def _write_parquet(directory, filename, data_dict):
     path = os.path.join(directory, filename)
-    lines = [",".join(header)] + [",".join(str(v) for v in row) for row in rows]
-    content = "\n".join(lines).encode("utf-8")
-    with gzip.open(path, "wb") as f:
-        f.write(content)
+    df = pd.DataFrame(data_dict)
+    df.to_parquet(path, index=False)
     return path
 
 
 MATCH_JSON = {
-    "match_id": "test_001",
-    "cheater_steamids": ["STEAM_1", "STEAM_3"],
-    "players": [
-        {"steamid": "STEAM_0", "team": "CT"},
-        {"steamid": "STEAM_1", "team": "CT"},
-        {"steamid": "STEAM_2", "team": "CT"},
-        {"steamid": "STEAM_3", "team": "T"},
-        {"steamid": "STEAM_4", "team": "T"},
+    "cheaters": [
+        {"steamid": "STEAM_1"},
+        {"steamid": "STEAM_3"},
     ],
 }
 
@@ -48,39 +42,52 @@ def test_identify_cheaters():
 
 
 def test_identify_cheaters_no_cheaters():
-    data = {
-        "match_id": "clean",
-        "cheater_steamids": [],
-        "players": [{"steamid": "STEAM_0", "team": "CT"}],
-    }
+    data = {"cheaters": []}
     with tempfile.TemporaryDirectory() as tmpdir:
         json_path = _write_json(tmpdir, "match.json", data)
         cheater_ids = _identify_cheaters(json_path)
         assert cheater_ids == set()
 
 
-CSV_HEADER = [
+PARQUET_COLUMNS = [
     "tick", "steamid", "X", "Y", "velocity_X", "velocity_Y",
-    "yaw", "health", "is_alive", "FIRE", "spotted", "shots_fired",
+    "yaw", "health", "is_alive", "FIRE", "spotted", "team_name",
 ]
 
 
-def _make_player_row(tick, steamid, x, y, yaw=0.0, health=100, alive=1, fire=0, spotted=0):
-    return [tick, steamid, x, y, 0.0, 0.0, yaw, health, alive, fire, spotted, 0]
+def _make_match_data(num_ticks, players):
+    data = {col: [] for col in PARQUET_COLUMNS}
+    for tick in range(num_ticks):
+        for player in players:
+            data["tick"].append(tick)
+            data["steamid"].append(player["steamid"])
+            data["X"].append(player.get("x", 0.0))
+            data["Y"].append(player.get("y", 0.0))
+            data["velocity_X"].append(0.0)
+            data["velocity_Y"].append(0.0)
+            data["yaw"].append(player.get("yaw", 0.0))
+            data["health"].append(100)
+            data["is_alive"].append(True)
+            data["FIRE"].append(False)
+            data["spotted"].append(False)
+            data["team_name"].append(player["team"])
+    return data
 
 
 def test_parse_match_labels_cheaters():
+    players = [
+        {"steamid": "STEAM_0", "team": "CT", "x": 0.0},
+        {"steamid": "STEAM_1", "team": "CT", "x": 100.0},
+        {"steamid": "STEAM_2", "team": "CT", "x": 200.0},
+        {"steamid": "STEAM_3", "team": "TERRORIST", "x": 300.0},
+        {"steamid": "STEAM_4", "team": "TERRORIST", "x": 400.0},
+    ]
     with tempfile.TemporaryDirectory() as tmpdir:
         json_path = _write_json(tmpdir, "match.json", MATCH_JSON)
-        rows = []
-        for tick in range(5):
-            for i, steam_id in enumerate(["STEAM_0", "STEAM_1", "STEAM_2", "STEAM_3", "STEAM_4"]):
-                x = float(i * 100)
-                y = float(tick * 10)
-                rows.append(_make_player_row(tick, steam_id, x, y))
-        _write_csv_gz(tmpdir, "match.csv.gz", CSV_HEADER, rows)
+        parquet_data = _make_match_data(5, players)
+        _write_parquet(tmpdir, "match.parquet", parquet_data)
         ticks = _parse_match(
-            os.path.join(tmpdir, "match.csv.gz"),
+            os.path.join(tmpdir, "match.parquet"),
             json_path,
         )
         assert len(ticks) == 25
@@ -91,23 +98,17 @@ def test_parse_match_labels_cheaters():
 
 
 def test_parse_match_computes_nearest_enemy():
-    match_json = {
-        "match_id": "dist_test",
-        "cheater_steamids": [],
-        "players": [
-            {"steamid": "P0", "team": "CT"},
-            {"steamid": "P1", "team": "T"},
-        ],
-    }
+    match_json = {"cheaters": []}
+    players = [
+        {"steamid": "P0", "team": "CT", "x": 0.0, "y": 0.0},
+        {"steamid": "P1", "team": "TERRORIST", "x": 300.0, "y": 400.0},
+    ]
     with tempfile.TemporaryDirectory() as tmpdir:
         json_path = _write_json(tmpdir, "match.json", match_json)
-        rows = [
-            _make_player_row(0, "P0", 0.0, 0.0),
-            _make_player_row(0, "P1", 300.0, 400.0),
-        ]
-        _write_csv_gz(tmpdir, "match.csv.gz", CSV_HEADER, rows)
+        parquet_data = _make_match_data(1, players)
+        _write_parquet(tmpdir, "match.parquet", parquet_data)
         ticks = _parse_match(
-            os.path.join(tmpdir, "match.csv.gz"),
+            os.path.join(tmpdir, "match.parquet"),
             json_path,
         )
         p0_tick = [t for t in ticks if t["pid"] == "P0"][0]
@@ -115,27 +116,23 @@ def test_parse_match_computes_nearest_enemy():
 
 
 def test_load_cs2cd_dataset_walks_subdirectories():
-    match_json = {
-        "match_id": "walk_test",
-        "cheater_steamids": ["P1"],
-        "players": [
-            {"steamid": "P0", "team": "CT"},
-            {"steamid": "P1", "team": "T"},
-        ],
-    }
+    cheater_json = {"cheaters": [{"steamid": "P1"}]}
+    clean_json = {"cheaters": []}
+    players = [
+        {"steamid": "P0", "team": "CT", "x": 0.0},
+        {"steamid": "P1", "team": "TERRORIST", "x": 100.0},
+    ]
     with tempfile.TemporaryDirectory() as tmpdir:
         cheater_dir = os.path.join(tmpdir, "with_cheater_present")
         clean_dir = os.path.join(tmpdir, "no_cheater_present")
         os.makedirs(cheater_dir)
         os.makedirs(clean_dir)
 
-        _write_json(cheater_dir, "match_001.json", match_json)
-        rows = [_make_player_row(0, "P0", 0, 0), _make_player_row(0, "P1", 100, 0)]
-        _write_csv_gz(cheater_dir, "match_001.csv.gz", CSV_HEADER, rows)
+        _write_json(cheater_dir, "0.json", cheater_json)
+        _write_parquet(cheater_dir, "0.parquet", _make_match_data(1, players))
 
-        clean_json = {**match_json, "cheater_steamids": []}
-        _write_json(clean_dir, "match_301.json", clean_json)
-        _write_csv_gz(clean_dir, "match_301.csv.gz", CSV_HEADER, rows)
+        _write_json(clean_dir, "0.json", clean_json)
+        _write_parquet(clean_dir, "0.parquet", _make_match_data(1, players))
 
         all_ticks = load_cs2cd_dataset(tmpdir)
         assert len(all_ticks) == 4

@@ -17,16 +17,16 @@ def load_cs2cd_dataset(dataset_path: str) -> list[dict]:
         if not os.path.isdir(subdir):
             logger.warning("Subdirectory not found: %s", subdir)
             continue
-        csv_gz_files = sorted(f for f in os.listdir(subdir) if f.endswith(".csv.gz"))
-        logger.info("Found %d match files in %s", len(csv_gz_files), subdir)
-        for csv_filename in csv_gz_files:
-            json_filename = csv_filename.replace(".csv.gz", ".json")
-            csv_path = os.path.join(subdir, csv_filename)
+        parquet_files = sorted(f for f in os.listdir(subdir) if f.endswith(".parquet"))
+        logger.info("Found %d match files in %s", len(parquet_files), subdir)
+        for parquet_filename in parquet_files:
+            json_filename = parquet_filename.replace(".parquet", ".json")
+            parquet_path = os.path.join(subdir, parquet_filename)
             json_path = os.path.join(subdir, json_filename)
             if not os.path.exists(json_path):
-                logger.warning("No companion JSON for %s, skipping", csv_filename)
+                logger.warning("No companion JSON for %s, skipping", parquet_filename)
                 continue
-            match_ticks = _parse_match(csv_path, json_path)
+            match_ticks = _parse_match(parquet_path, json_path)
             all_ticks.extend(match_ticks)
     logger.info("Loaded %d total ticks from CS2CD dataset", len(all_ticks))
     return all_ticks
@@ -35,43 +35,30 @@ def load_cs2cd_dataset(dataset_path: str) -> list[dict]:
 def _identify_cheaters(json_path: str) -> set[str]:
     with open(json_path, "r") as f:
         metadata = json.load(f)
-    return set(metadata.get("cheater_steamids", []))
+    cheaters_list = metadata.get("cheaters", [])
+    return {entry["steamid"] for entry in cheaters_list if "steamid" in entry}
 
 
-def _parse_match(csv_gz_path: str, json_path: str) -> list[dict]:
-    with open(json_path, "r") as f:
-        metadata = json.load(f)
-    cheater_steam_ids = set(metadata.get("cheater_steamids", []))
-    players = metadata.get("players", [])
-    steamid_to_team = {p["steamid"]: p["team"] for p in players}
-    team_list = [p["team"] for p in players]
-    steamid_list = [p["steamid"] for p in players]
+def _parse_match(parquet_path: str, json_path: str) -> list[dict]:
+    cheater_steam_ids = _identify_cheaters(json_path)
 
     ticks = []
     prev_aim_by_player: dict[str, float] = {}
 
     try:
-        dataframe = pd.read_csv(csv_gz_path, compression="gzip")
+        dataframe = pd.read_parquet(parquet_path)
     except Exception:
-        logger.exception("Failed to read %s", csv_gz_path)
+        logger.exception("Failed to read %s", parquet_path)
         return []
 
-    required_columns = {"X", "Y", "velocity_X", "velocity_Y", "yaw", "health", "is_alive"}
+    required_columns = {"X", "Y", "yaw", "health", "is_alive", "tick", "steamid"}
     if not required_columns.issubset(set(dataframe.columns)):
         missing = required_columns - set(dataframe.columns)
-        logger.warning("Missing columns in %s: %s", csv_gz_path, missing)
+        logger.warning("Missing columns in %s: %s", parquet_path, missing)
         return []
 
-    if "tick" not in dataframe.columns:
-        player_count = len(players) if players else 10
-        dataframe["tick"] = dataframe.index // player_count
-
-    if "steamid" not in dataframe.columns:
-        player_count = len(players) if players else 10
-        dataframe["steamid"] = [
-            steamid_list[i % player_count] if steamid_list else f"player_{i % player_count}"
-            for i in range(len(dataframe))
-        ]
+    has_velocity = "velocity_X" in dataframe.columns and "velocity_Y" in dataframe.columns
+    has_team = "team_name" in dataframe.columns
 
     for tick_number, tick_group in dataframe.groupby("tick"):
         tick_rows = tick_group.to_dict("records")
@@ -79,8 +66,17 @@ def _parse_match(csv_gz_path: str, json_path: str) -> list[dict]:
             steam_id = str(row.get("steamid", f"player_{row_index}"))
             player_x = float(row.get("X", 0.0))
             player_y = float(row.get("Y", 0.0))
-            velocity_x = float(row.get("velocity_X", 0.0))
-            velocity_y = float(row.get("velocity_Y", 0.0))
+
+            velocity_x = 0.0
+            velocity_y = 0.0
+            if has_velocity:
+                raw_vx = row.get("velocity_X")
+                raw_vy = row.get("velocity_Y")
+                if pd.notna(raw_vx):
+                    velocity_x = float(raw_vx)
+                if pd.notna(raw_vy):
+                    velocity_y = float(raw_vy)
+
             yaw = float(row.get("yaw", 0.0))
             health = int(float(row.get("health", 100)))
             is_alive = bool(row.get("is_alive", True))
@@ -93,13 +89,10 @@ def _parse_match(csv_gz_path: str, json_path: str) -> list[dict]:
                 aim_delta = 2 * math.pi - aim_delta
             prev_aim_by_player[steam_id] = yaw
 
-            player_team = steamid_to_team.get(
-                steam_id,
-                team_list[row_index % len(team_list)] if team_list else "CT",
-            )
+            player_team = str(row.get("team_name", "CT")) if has_team else "CT"
             nearest_dist, nearest_angle = _compute_nearest_enemy(
                 tick_rows, row_index, player_x, player_y,
-                player_team, steamid_to_team,
+                player_team, has_team,
             )
 
             aim_to_enemy_offset = abs(yaw - nearest_angle)
@@ -141,7 +134,7 @@ def _compute_nearest_enemy(
     player_x: float,
     player_y: float,
     player_team: str,
-    steamid_to_team: dict[str, str],
+    has_team: bool,
 ) -> tuple[float, float]:
     nearest_dist = 99999.0
     nearest_angle = 0.0
@@ -150,10 +143,10 @@ def _compute_nearest_enemy(
             continue
         if not bool(other_row.get("is_alive", True)):
             continue
-        other_steam_id = str(other_row.get("steamid", f"player_{other_index}"))
-        other_team = steamid_to_team.get(other_steam_id, "")
-        if other_team == player_team:
-            continue
+        if has_team:
+            other_team = str(other_row.get("team_name", ""))
+            if other_team == player_team:
+                continue
         other_x = float(other_row.get("X", 0.0))
         other_y = float(other_row.get("Y", 0.0))
         dx = other_x - player_x
