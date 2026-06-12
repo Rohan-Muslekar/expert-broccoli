@@ -1,3 +1,4 @@
+import gc
 import json
 import logging
 import os
@@ -7,7 +8,7 @@ import numpy as np
 from models.xgboost_model import XGBoostClassifier, FEATURE_NAMES
 from models.autoencoder import LSTMAutoencoder
 from training.normalizer import FeatureNormalizer
-from training.cs2_parser import load_cs2cd_dataset, extract_features_from_ticks
+from training.cs2_parser import iter_match_files, _parse_match, extract_features_from_ticks
 
 logger = logging.getLogger(__name__)
 
@@ -83,23 +84,38 @@ class TrainingPipeline:
         return metadata
 
     def train_from_cs2cd(self, cs2cd_path: str, live_samples: list[dict] | None = None, min_cs2cd_samples: int = 1000) -> dict:
-        cs2cd_ticks = load_cs2cd_dataset(cs2cd_path)
-        if not cs2cd_ticks:
-            raise ValueError(f"No ticks loaded from CS2CD dataset at {cs2cd_path}")
+        match_files = iter_match_files(cs2cd_path)
+        if not match_files:
+            raise ValueError(f"No match files found in CS2CD dataset at {cs2cd_path}")
 
-        cs2cd_features = extract_features_from_ticks(cs2cd_ticks)
-        if len(cs2cd_features) < min_cs2cd_samples:
-            raise ValueError(f"Only {len(cs2cd_features)} CS2CD features extracted, need {min_cs2cd_samples}")
+        all_features = []
+        for match_index, (parquet_path, json_path) in enumerate(match_files):
+            match_name = os.path.basename(parquet_path)
+            logger.info("Processing match %d/%d: %s", match_index + 1, len(match_files), match_name)
 
-        logger.info("CS2CD: %d feature vectors extracted", len(cs2cd_features))
+            ticks = _parse_match(parquet_path, json_path)
+            if not ticks:
+                logger.warning("No ticks from %s, skipping", match_name)
+                continue
 
-        all_samples = list(cs2cd_features)
+            features = extract_features_from_ticks(ticks)
+            logger.info("Match %s: %d ticks -> %d features", match_name, len(ticks), len(features))
+            all_features.extend(features)
+
+            del ticks
+            gc.collect()
+
+        if len(all_features) < min_cs2cd_samples:
+            raise ValueError(f"Only {len(all_features)} CS2CD features extracted, need {min_cs2cd_samples}")
+
+        logger.info("CS2CD total: %d feature vectors from %d matches", len(all_features), len(match_files))
+
         if live_samples:
-            all_samples.extend(live_samples)
-            logger.info("Merged %d live samples, total: %d", len(live_samples), len(all_samples))
+            all_features.extend(live_samples)
+            logger.info("Merged %d live samples, total: %d", len(live_samples), len(all_features))
 
-        metadata = self.train_from_samples(all_samples)
-        metadata["cs2cd_samples"] = len(cs2cd_features)
+        metadata = self.train_from_samples(all_features)
+        metadata["cs2cd_samples"] = len(all_features) - (len(live_samples) if live_samples else 0)
         metadata["live_samples"] = len(live_samples) if live_samples else 0
         return metadata
 
