@@ -65,12 +65,14 @@ services:
       CONSUME_TOPIC: "features.computed"
       ALERTS_TOPIC: "alerts.detections"
       MODEL_DIR: "/app/saved_models"
+      CS2CD_DATASET_PATH: "/app/datasets/cs2cd"
       AUTO_TRAIN_THRESHOLD: "0"
       ANOMALY_STD_MULTIPLIER: "3.0"
       ALERT_COOLDOWN_SECONDS: "5"
       XGBOOST_CONFIDENCE_THRESHOLD: "0.8"
     volumes:
       - ml-models:/app/saved_models
+      - ./datasets/cs2cd:/app/datasets/cs2cd:ro
     depends_on:
       kafka-init:
         condition: service_completed_successfully
