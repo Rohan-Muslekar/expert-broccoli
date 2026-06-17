@@ -3,7 +3,7 @@ echo "Waiting for Kafka to be ready..."
 sleep 5
 
 KAFKA_BIN="/opt/kafka/bin"
-BROKER="localhost:9092"
+BROKER="${KAFKA_BROKER:-localhost:9092}"
 
 for topic in telemetry.raw events.kills features.computed alerts.detections; do
     $KAFKA_BIN/kafka-topics.sh \
