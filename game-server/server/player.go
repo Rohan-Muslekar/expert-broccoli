@@ -135,11 +135,22 @@ func (p *Player) ApplyInput(dt float64) {
 	p.VX *= 0.85
 	p.VY *= 0.85
 
+	// Apply velocity to position
+	p.X += p.VX
+	p.Y += p.VY
+
 	// Update aim from mouse coordinates
 	p.PrevAim = p.AimAngle
 	p.AimAngle = math.Atan2(input.Mouse.Y-p.Y, input.Mouse.X-p.X)
 
 	p.Shooting = input.Shooting
+
+	if p.IsHuman {
+		p.Cheats.Aimbot = input.Cheats.Aimbot
+		p.Cheats.SpeedHack = input.Cheats.SpeedHack
+		p.Cheats.WallHack = input.Cheats.WallHack
+		p.Cheats.TriggerBot = input.Cheats.TriggerBot
+	}
 }
 
 // ComputeSpatialContext finds nearest enemy and computes spatial awareness fields.

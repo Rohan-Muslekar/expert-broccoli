@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"cheat-detection/game-server/config"
+	"cheat-detection/game-server/metrics"
 	"cheat-detection/game-server/telemetry"
 )
 
@@ -45,6 +46,7 @@ func NewGame(cfg config.Config) *Game {
 		g.Bots = append(g.Bots, NewBotAI(p, cfg.BotCheatsEnabled))
 	}
 
+	metrics.PlayersActive.Set(float64(len(g.Players)))
 	return g
 }
 
@@ -68,6 +70,7 @@ func (g *Game) AddHumanPlayer() *Player {
 					break
 				}
 			}
+			metrics.WebSocketConns.Inc()
 			return human
 		}
 	}
@@ -84,6 +87,8 @@ func (g *Game) AddHumanPlayer() *Player {
 		time.Duration(g.Cfg.RespawnDelaySec)*time.Second,
 	)
 	g.Players = append(g.Players, human)
+	metrics.PlayersActive.Set(float64(len(g.Players)))
+	metrics.WebSocketConns.Inc()
 	return human
 }
 
@@ -98,6 +103,7 @@ func (g *Game) RemoveHumanPlayer(playerID string) {
 			bot := NewPlayer(botID, spawn, true, time.Duration(g.Cfg.RespawnDelaySec)*time.Second)
 			g.Players[i] = bot
 			g.Bots = append(g.Bots, NewBotAI(bot, g.Cfg.BotCheatsEnabled))
+			metrics.WebSocketConns.Dec()
 			return
 		}
 	}

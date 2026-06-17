@@ -45,8 +45,8 @@ services:
       PRODUCE_TOPIC: "features.computed"
       ALERTS_TOPIC: "alerts.detections"
     depends_on:
-      kafka:
-        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
   game-client:
     build: ./game-client

@@ -128,7 +128,7 @@ func (b *BotAI) updateAiming(dt time.Duration, others []*Player, walls []telemet
 	// New target acquired: apply reaction delay
 	if b.aimTarget == nil || b.aimTarget.ID != nearest.ID {
 		b.aimTarget = nearest
-		b.aimDelay = randomDuration(150*time.Millisecond, 250*time.Millisecond)
+		b.aimDelay = randomDuration(400*time.Millisecond, 800*time.Millisecond)
 		b.aimReady = false
 	}
 
@@ -140,7 +140,7 @@ func (b *BotAI) updateAiming(dt time.Duration, others []*Player, walls []telemet
 	if b.aimReady {
 		// Compute ideal angle with inaccuracy offset (25-35% accuracy via +/-0.3 rad)
 		idealAngle := AngleBetween(b.player.X, b.player.Y, nearest.X, nearest.Y)
-		offset := (rand.Float64() - 0.5) * 0.6 // +/- 0.3 rad
+		offset := (rand.Float64() - 0.5) * 1.2 // +/- 0.6 rad
 		targetAngle := idealAngle + offset
 
 		// Interpolate aim toward target (smooth tracking)
@@ -151,7 +151,7 @@ func (b *BotAI) updateAiming(dt time.Duration, others []*Player, walls []telemet
 		for diff < -math.Pi {
 			diff += 2 * math.Pi
 		}
-		b.player.AimAngle += diff * 0.3
+		b.player.AimAngle += diff * 0.15
 	}
 }
 
