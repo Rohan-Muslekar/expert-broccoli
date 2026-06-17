@@ -12,7 +12,7 @@ from training.cs2_parser import iter_match_files, _parse_match, extract_features
 
 logger = logging.getLogger(__name__)
 
-CHEAT_CLASSES = ["none", "cheater", "aimbot", "speedhack", "wallhack", "triggerbot"]
+CHEAT_CLASSES = ["none", "cheater"]
 SEQUENCE_LENGTH = 60
 
 
@@ -39,8 +39,8 @@ class TrainingPipeline:
         train_features = normalizer.fit_transform(train_samples)
         test_features = normalizer.transform(test_samples)
 
-        train_labels = np.array([s.get("cheat_label", "none") for s in train_samples])
-        test_labels = np.array([s.get("cheat_label", "none") for s in test_samples])
+        train_labels = np.array(["none" if s.get("cheat_label", "none") == "none" else "cheater" for s in train_samples])
+        test_labels = np.array(["none" if s.get("cheat_label", "none") == "none" else "cheater" for s in test_samples])
 
         logger.info("Training XGBoost on %d samples (%d test)", len(train_samples), len(test_samples))
         xgboost_classifier = XGBoostClassifier(CHEAT_CLASSES)
@@ -51,12 +51,18 @@ class TrainingPipeline:
         clean_train_features = train_features[clean_train_mask]
         logger.info("Training LSTM autoencoder on %d clean samples", len(clean_train_features))
 
+        max_autoencoder_samples = 5000
+        if len(clean_train_features) > max_autoencoder_samples:
+            step = len(clean_train_features) // max_autoencoder_samples
+            clean_train_features = clean_train_features[::step][:max_autoencoder_samples]
+            logger.info("Downsampled autoencoder training to %d samples", len(clean_train_features))
+
         clean_sequences = self._make_sequences(clean_train_features, SEQUENCE_LENGTH)
         if len(clean_sequences) < 10:
             raise ValueError(f"Not enough clean sequences for autoencoder: {len(clean_sequences)}")
 
         autoencoder = LSTMAutoencoder(num_features=len(FEATURE_NAMES), sequence_length=SEQUENCE_LENGTH)
-        autoencoder_history = autoencoder.train(clean_sequences, epochs=50, batch_size=32)
+        autoencoder_history = autoencoder.train(clean_sequences, epochs=10, batch_size=64)
         threshold_stats = autoencoder.calibrate_threshold(clean_sequences)
         logger.info("Autoencoder threshold: mean=%.4f, std=%.4f", threshold_stats["mean"], threshold_stats["std"])
 
@@ -83,11 +89,12 @@ class TrainingPipeline:
         logger.info("All models saved to %s", self.model_dir)
         return metadata
 
-    def train_from_cs2cd(self, cs2cd_path: str, live_samples: list[dict] | None = None, min_cs2cd_samples: int = 1000) -> dict:
+    def train_from_cs2cd(self, cs2cd_path: str, live_samples: list[dict] | None = None, min_cs2cd_samples: int = 1000, max_matches: int = 5) -> dict:
         match_files = iter_match_files(cs2cd_path)
         if not match_files:
             raise ValueError(f"No match files found in CS2CD dataset at {cs2cd_path}")
 
+        match_files = match_files[:max_matches]
         all_features = []
         for match_index, (parquet_path, json_path) in enumerate(match_files):
             match_name = os.path.basename(parquet_path)
@@ -102,7 +109,7 @@ class TrainingPipeline:
             logger.info("Match %s: %d ticks -> %d features", match_name, len(ticks), len(features))
             all_features.extend(features)
 
-            del ticks
+            del ticks, features
             gc.collect()
 
         if len(all_features) < min_cs2cd_samples:

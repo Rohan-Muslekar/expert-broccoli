@@ -1,7 +1,7 @@
 {
   "uid": "detection-analytics",
   "title": "Detection Analytics",
-  "editable": false,
+  "editable": true,
   "refresh": "5s",
   "time": {
     "from": "now-15m",
@@ -154,7 +154,23 @@
       "fieldConfig": {
         "defaults": {
           "mappings": []
-        }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "none" },
+            "properties": [
+              { "id": "displayName", "value": "Normal Player" },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "cheater" },
+            "properties": [
+              { "id": "displayName", "value": "Cheater" },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          }
+        ]
       },
       "targets": [
         {

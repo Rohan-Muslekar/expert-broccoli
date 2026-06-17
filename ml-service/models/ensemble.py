@@ -30,21 +30,17 @@ class AlertCombiner:
         anomaly_threshold = self.anomaly_mean + self.anomaly_std_multiplier * self.anomaly_std
         autoencoder_triggered = anomaly_score > anomaly_threshold
 
-        if not xgboost_triggered and not autoencoder_triggered:
+        if not xgboost_triggered:
             return None
 
         if xgboost_triggered and autoencoder_triggered:
             model_source = "ensemble"
             cheat_type = xgboost_label
             confidence = max(xgboost_confidence, self._anomaly_to_confidence(anomaly_score))
-        elif xgboost_triggered:
+        else:
             model_source = "xgboost"
             cheat_type = xgboost_label
             confidence = xgboost_confidence
-        else:
-            model_source = "autoencoder"
-            cheat_type = "unknown"
-            confidence = self._anomaly_to_confidence(anomaly_score)
 
         cooldown_key = f"{player_id}:{cheat_type}"
         last_time = self.last_alert_time.get(cooldown_key, 0)

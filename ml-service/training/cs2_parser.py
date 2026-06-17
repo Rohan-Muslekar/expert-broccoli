@@ -46,7 +46,7 @@ def _identify_cheaters(json_path: str) -> set[str]:
     return {entry["steamid"] for entry in cheaters_list if "steamid" in entry}
 
 
-def _parse_match(parquet_path: str, json_path: str) -> list[dict]:
+def _parse_match(parquet_path: str, json_path: str, max_ticks: int = 30000) -> list[dict]:
     cheater_steam_ids = _identify_cheaters(json_path)
 
     ticks = []
@@ -69,6 +69,13 @@ def _parse_match(parquet_path: str, json_path: str) -> list[dict]:
     available_columns = [c for c in keep_columns if c in full_dataframe.columns]
     dataframe = full_dataframe[available_columns].copy()
     del full_dataframe
+
+    unique_ticks = dataframe["tick"].unique()
+    if len(unique_ticks) > max_ticks:
+        step = len(unique_ticks) // max_ticks
+        sampled_ticks = set(unique_ticks[::step])
+        dataframe = dataframe[dataframe["tick"].isin(sampled_ticks)]
+        logger.info("Downsampled from %d to %d ticks", len(unique_ticks), len(sampled_ticks))
 
     has_velocity = "velocity_X" in dataframe.columns and "velocity_Y" in dataframe.columns
     has_team = "team_name" in dataframe.columns

@@ -136,8 +136,9 @@ class InferenceConsumer:
         xgboost_start = time.time()
         single_features = np.array([buffer.latest_features()], dtype=np.float32)
         predicted_labels, probabilities = self.xgboost_classifier.predict(single_features)
-        xgboost_label = predicted_labels[0]
+        raw_label = predicted_labels[0]
         xgboost_confidence = float(probabilities[0].max())
+        xgboost_label = raw_label if raw_label == "none" or xgboost_confidence >= self.config.xgboost_confidence_threshold else "none"
         pm.xgboost_inference_duration.observe(time.time() - xgboost_start)
         pm.predictions_total.labels(cheat_type=xgboost_label).inc()
 

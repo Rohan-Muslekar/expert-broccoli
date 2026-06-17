@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	"cheat-detection/game-server/telemetry"
@@ -71,25 +70,12 @@ func NewPlayer(id string, spawn SpawnPoint, isBot bool, respawnDelay time.Durati
 	}
 }
 
-// CheatLabel returns a comma-separated string of active cheats, or "none".
+// CheatLabel returns "cheater" if any cheat is active, or "none".
 func (p *Player) CheatLabel() string {
-	var labels []string
-	if p.Cheats.Aimbot {
-		labels = append(labels, "aimbot")
+	if p.Cheats.Aimbot || p.Cheats.SpeedHack || p.Cheats.WallHack || p.Cheats.TriggerBot {
+		return "cheater"
 	}
-	if p.Cheats.SpeedHack {
-		labels = append(labels, "speedhack")
-	}
-	if p.Cheats.WallHack {
-		labels = append(labels, "wallhack")
-	}
-	if p.Cheats.TriggerBot {
-		labels = append(labels, "triggerbot")
-	}
-	if len(labels) == 0 {
-		return "none"
-	}
-	return strings.Join(labels, ",")
+	return "none"
 }
 
 // ApplyInput reads LatestInput and updates velocity and aim.

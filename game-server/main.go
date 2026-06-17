@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -47,10 +48,14 @@ func main() {
 			cfg.FeatureProduceTopic, cfg.FeatureAlertsTopic)
 	}
 
+	skipBotFeatures := !cfg.BotCheatsEnabled
 	go func() {
 		for playerTelemetry := range game.TelemetryCh() {
 			producer.PublishTelemetry(ctx, playerTelemetry)
 			if featureEngine != nil {
+				if skipBotFeatures && strings.HasPrefix(playerTelemetry.PlayerID, "bot-") {
+					continue
+				}
 				select {
 				case featureEvents <- playerTelemetry:
 				default:

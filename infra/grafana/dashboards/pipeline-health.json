@@ -1,7 +1,7 @@
 {
   "uid": "pipeline-health",
   "title": "Pipeline Health",
-  "editable": false,
+  "editable": true,
   "refresh": "5s",
   "time": {
     "from": "now-15m",

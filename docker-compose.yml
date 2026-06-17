@@ -40,7 +40,7 @@ services:
       KAFKA_ENABLED: "true"
       KAFKA_BROKERS: "kafka:9092"
       BOT_COUNT: "8"
-      BOT_CHEATS_ENABLED: "true"
+      BOT_CHEATS_ENABLED: "false"
       METRICS_ENABLED: "true"
       PRODUCE_TOPIC: "features.computed"
       ALERTS_TOPIC: "alerts.detections"
@@ -66,10 +66,10 @@ services:
       ALERTS_TOPIC: "alerts.detections"
       MODEL_DIR: "/app/saved_models"
       CS2CD_DATASET_PATH: "/app/datasets/cs2cd"
-      AUTO_TRAIN_THRESHOLD: "0"
-      ANOMALY_STD_MULTIPLIER: "3.0"
+      AUTO_TRAIN_THRESHOLD: "5000"
+      ANOMALY_STD_MULTIPLIER: "4.0"
       ALERT_COOLDOWN_SECONDS: "5"
-      XGBOOST_CONFIDENCE_THRESHOLD: "0.8"
+      XGBOOST_CONFIDENCE_THRESHOLD: "0.95"
     volumes:
       - ml-models:/app/saved_models
       - ./datasets/cs2cd:/app/datasets/cs2cd:ro
