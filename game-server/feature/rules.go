@@ -33,9 +33,9 @@ var allRules = []Rule{
 		Name:       "aim_snap",
 		CheatType:  "aimbot",
 		Confidence: 0.95,
-		Threshold:  2.0,
+		Threshold:  3.5,
 		Check: func(features FeatureVector) (bool, float64) {
-			return features.AimDeltaMax1s > 2.0, features.AimDeltaMax1s
+			return features.AimDeltaMax1s > 3.5 && features.ShotsFired5s > 5, features.AimDeltaMax1s
 		},
 	},
 	{
@@ -53,7 +53,7 @@ var allRules = []Rule{
 		Confidence: 0.90,
 		Threshold:  0.90,
 		Check: func(features FeatureVector) (bool, float64) {
-			return features.AimLockRatio5s > 0.90 && features.EnemiesVisible > 0, features.AimLockRatio5s
+			return features.AimLockRatio5s > 0.90 && features.EnemiesVisible > 0 && features.ShotsFired5s > 10, features.AimLockRatio5s
 		},
 	},
 	{
@@ -62,7 +62,7 @@ var allRules = []Rule{
 		Confidence: 0.90,
 		Threshold:  0.60,
 		Check: func(features FeatureVector) (bool, float64) {
-			return features.PrefireRatio5s > 0.60 && features.ShotsFired5s > 20, features.PrefireRatio5s
+			return features.PrefireRatio5s > 0.60 && features.ShotsFired5s > 20 && features.HitRate5s > 0.3, features.PrefireRatio5s
 		},
 	},
 	{
@@ -71,7 +71,7 @@ var allRules = []Rule{
 		Confidence: 0.90,
 		Threshold:  3.0,
 		Check: func(features FeatureVector) (bool, float64) {
-			return features.ReactionTimeMean5s > 0 && features.ReactionTimeMean5s < 3.0 && features.ShotsFired5s > 10, features.ReactionTimeMean5s
+			return features.ReactionTimeMean5s > 0 && features.ReactionTimeMean5s < 3.0 && features.HitRate5s > 0.5 && features.ShotsFired5s > 10, features.ReactionTimeMean5s
 		},
 	},
 }
