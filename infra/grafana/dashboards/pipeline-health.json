@@ -1,0 +1,284 @@
+{
+  "uid": "pipeline-health",
+  "title": "Pipeline Health",
+  "editable": false,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "schemaVersion": 39,
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Game Server",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "Active Players",
+      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 8 },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "green", "value": 4 }
+            ]
+          },
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "game_players_active",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Tick Duration",
+      "gridPos": { "x": 4, "y": 1, "w": 14, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "displayName": "avg tick",
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(game_tick_duration_seconds_sum[1m]) / rate(game_tick_duration_seconds_count[1m])",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "WebSocket Connections",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 8 },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "game_websocket_connections",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "Kafka & Feature Engine",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Telemetry Rate",
+      "gridPos": { "x": 0, "y": 10, "w": 6, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(telemetry_messages_published_total[1m])",
+          "legendFormat": "{{topic}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Features Published Rate",
+      "gridPos": { "x": 6, "y": 10, "w": 6, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(feature_engine_features_published_total[1m])",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Kafka Errors",
+      "gridPos": { "x": 12, "y": 10, "w": 4, "h": 8 },
+      "options": {
+        "colorMode": "background",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "increase(kafka_publish_errors_total[5m])",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Feature Processing Latency",
+      "gridPos": { "x": 16, "y": 10, "w": 8, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "displayName": "p99",
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, rate(feature_engine_processing_duration_seconds_bucket[1m]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "System Status",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 19, "w": 24, "h": 1 }
+    },
+    {
+      "id": 11,
+      "type": "gauge",
+      "title": "Feature Active Players",
+      "gridPos": { "x": 0, "y": 20, "w": 8, "h": 8 },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "feature_engine_active_players",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "XGBoost Model",
+      "gridPos": { "x": 8, "y": 20, "w": 8, "h": 8 },
+      "options": {
+        "colorMode": "background_solid",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "Not Loaded", "color": "red", "index": 0 },
+                "1": { "text": "Loaded", "color": "green", "index": 1 }
+              }
+            }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "ml_model_loaded{model=\"xgboost\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Autoencoder Model",
+      "gridPos": { "x": 16, "y": 20, "w": 8, "h": 8 },
+      "options": {
+        "colorMode": "background_solid",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "Not Loaded", "color": "red", "index": 0 },
+                "1": { "text": "Loaded", "color": "green", "index": 1 }
+              }
+            }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "ml_model_loaded{model=\"autoencoder\"}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

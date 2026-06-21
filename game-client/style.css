@@ -1,0 +1,58 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: #0a0a1a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+#game {
+    border: 2px solid #333;
+    cursor: crosshair;
+}
+
+#hud {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+#cheat-hud {
+    display: flex;
+    gap: 10px;
+}
+
+.cheat-label {
+    padding: 4px 10px;
+    background: #222;
+    color: #555;
+    font-family: monospace;
+    font-size: 14px;
+    border-radius: 4px;
+    border: 1px solid #333;
+}
+
+.cheat-label.active {
+    color: #ff4444;
+    border-color: #ff4444;
+    background: #331111;
+}
+
+#overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    font-family: monospace;
+    font-size: 24px;
+}
+
+#overlay.hidden { display: none; }

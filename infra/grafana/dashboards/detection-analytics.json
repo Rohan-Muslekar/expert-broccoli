@@ -1,0 +1,257 @@
+{
+  "uid": "detection-analytics",
+  "title": "Detection Analytics",
+  "editable": false,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "schemaVersion": 39,
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Alert Overview",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Rule Engine Alerts",
+      "gridPos": { "x": 0, "y": 1, "w": 8, "h": 8 },
+      "options": {
+        "stacking": {
+          "mode": "normal",
+          "group": "A"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(feature_engine_alerts_fired_total[1m])",
+          "legendFormat": "{{rule}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "ML Alerts by Model",
+      "gridPos": { "x": 8, "y": 1, "w": 8, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(ml_alerts_published_total[1m])",
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Total Alert Rate",
+      "gridPos": { "x": 16, "y": 1, "w": 8, "h": 8 },
+      "options": {
+        "colorMode": "background",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 2 }
+            ]
+          },
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(feature_engine_alerts_fired_total[1m])) + sum(rate(ml_alerts_published_total[1m]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "ML Inference",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "XGBoost Latency",
+      "gridPos": { "x": 0, "y": 10, "w": 8, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "displayName": "p99",
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, rate(ml_xgboost_inference_duration_seconds_bucket[1m]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Autoencoder Latency",
+      "gridPos": { "x": 8, "y": 10, "w": 8, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "displayName": "p99",
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, rate(ml_autoencoder_inference_duration_seconds_bucket[1m]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "piechart",
+      "title": "Predictions by Type",
+      "gridPos": { "x": 16, "y": 10, "w": 8, "h": 8 },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "increase(ml_predictions_total[5m])",
+          "legendFormat": "{{cheat_type}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Anomaly Detection",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 19, "w": 24, "h": 1 }
+    },
+    {
+      "id": 10,
+      "type": "heatmap",
+      "title": "Anomaly Score Distribution",
+      "gridPos": { "x": 0, "y": 20, "w": 10, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(ml_autoencoder_anomaly_score_bucket[1m])",
+          "format": "heatmap",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Training Samples",
+      "gridPos": { "x": 10, "y": 20, "w": 7, "h": 8 },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          },
+          "mappings": []
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "ml_training_samples_collected",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Service Mode",
+      "gridPos": { "x": 17, "y": 20, "w": 7, "h": 8 },
+      "options": {
+        "colorMode": "background_solid",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "Collection", "color": "blue", "index": 0 },
+                "1": { "text": "Inference", "color": "green", "index": 1 }
+              }
+            }
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "ml_model_loaded{model=\"xgboost\"}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

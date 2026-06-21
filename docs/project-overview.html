@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real-Time Cheat Detection for Multiplayer Games</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#fafafa;--surface:#fff;--surface-alt:#f5f6f8;--border:#e2e5e9;--text:#1a1a2e;--text-muted:#5a5f6d;--accent:#3b5bdb;--accent-light:#edf2ff;--green:#2b8a3e;--green-light:#ebfbee;--red:#c92a2a;--red-light:#fff5f5;--orange:#e67700;--orange-light:#fff9db;--purple:#7048e8;--purple-light:#f3f0ff;--teal:#0c8599;--teal-light:#e6fcf5;--code-bg:#f1f3f5;--shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 6px rgba(0,0,0,.05),0 2px 4px rgba(0,0,0,.03);--radius:8px;--mono:'SF Mono','Cascadia Code','Fira Code',monospace;--sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.7}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:var(--mono);font-size:.875em;background:var(--code-bg);padding:2px 6px;border-radius:4px}
+pre{font-family:var(--mono);font-size:.8125rem;background:var(--code-bg);padding:1.25rem;border-radius:var(--radius);overflow-x:auto;line-height:1.6;border:1px solid var(--border)}
+pre code{background:none;padding:0}
+h1,h2,h3,h4{font-weight:600;line-height:1.3}
+
+nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:.75rem 0}
+nav .inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+nav .brand{font-weight:700;font-size:1rem;color:var(--text);white-space:nowrap}
+nav .links{display:flex;gap:.25rem;flex-wrap:wrap}
+nav .links a{font-size:.8125rem;padding:.375rem .75rem;border-radius:6px;color:var(--text-muted);transition:all .15s}
+nav .links a:hover{background:var(--accent-light);color:var(--accent);text-decoration:none}
+
+.hero{max-width:1100px;margin:0 auto;padding:4rem 2rem 3rem;text-align:center}
+.hero h1{font-size:2.25rem;margin-bottom:.75rem;letter-spacing:-.02em}
+.hero .subtitle{font-size:1.125rem;color:var(--text-muted);max-width:700px;margin:0 auto 1.5rem}
+.hero .tags{display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap}
+.hero .tag{font-size:.75rem;padding:.375rem .75rem;border-radius:20px;font-weight:500}
+.tag-go{background:#e6fcf5;color:#087f5b}
+.tag-py{background:#fff3bf;color:#e67700}
+.tag-kafka{background:#f3f0ff;color:#7048e8}
+.tag-ml{background:#fff5f5;color:#c92a2a}
+.tag-rt{background:#edf2ff;color:#3b5bdb}
+.tag-docker{background:#e7f5ff;color:#1971c2}
+
+section{max-width:1100px;margin:0 auto;padding:3rem 2rem}
+section h2{font-size:1.625rem;margin-bottom:.375rem;letter-spacing:-.01em}
+section .section-sub{color:var(--text-muted);font-size:.9375rem;margin-bottom:2rem}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;box-shadow:var(--shadow)}
+.card h3{font-size:1.0625rem;margin-bottom:.5rem}
+.card p{color:var(--text-muted);font-size:.9375rem}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.25rem}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.25rem}
+
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:.875rem}
+th{background:var(--surface-alt);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:.625rem 1rem;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface-alt)}
+
+.diagram-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;overflow-x:auto;box-shadow:var(--shadow)}
+.diagram-box pre{background:none;border:none;padding:0;font-size:.8rem;line-height:1.5}
+
+.badge{display:inline-block;font-size:.6875rem;font-weight:600;padding:.25rem .625rem;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
+.badge-go{background:var(--teal-light);color:var(--teal)}
+.badge-py{background:var(--orange-light);color:var(--orange)}
+.badge-infra{background:var(--purple-light);color:var(--purple)}
+
+.accordion{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+.accordion details{border-bottom:1px solid var(--border)}
+.accordion details:last-child{border-bottom:none}
+.accordion summary{padding:1rem 1.25rem;font-weight:600;font-size:.9375rem;cursor:pointer;list-style:none;display:flex;align-items:center;gap:.75rem;user-select:none;transition:background .15s}
+.accordion summary:hover{background:var(--surface-alt)}
+.accordion summary::before{content:'+';font-size:1.125rem;font-weight:400;color:var(--text-muted);width:1.25rem;text-align:center;flex-shrink:0;transition:transform .2s}
+.accordion details[open] summary::before{content:'\2212'}
+.accordion .acc-body{padding:0 1.25rem 1.25rem;font-size:.9375rem;line-height:1.7;color:var(--text-muted)}
+.accordion .acc-body p{margin-bottom:.75rem}
+.accordion .acc-body p:last-child{margin-bottom:0}
+.accordion .acc-body strong{color:var(--text)}
+
+.qa{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+.qa details{border-bottom:1px solid var(--border)}
+.qa details:last-child{border-bottom:none}
+.qa summary{padding:1rem 1.25rem;font-weight:500;font-size:.9375rem;cursor:pointer;list-style:none;display:flex;gap:.75rem;user-select:none}
+.qa summary:hover{background:var(--surface-alt)}
+.qa summary::before{content:'Q';font-size:.75rem;font-weight:700;color:var(--accent);background:var(--accent-light);width:1.5rem;height:1.5rem;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.qa .qa-body{padding:0 1.25rem 1.25rem 3.5rem;font-size:.9375rem;line-height:1.7;color:var(--text-muted)}
+
+.flow{display:flex;flex-direction:column;gap:0;position:relative}
+.flow-step{display:flex;gap:1.25rem;position:relative}
+.flow-line{display:flex;flex-direction:column;align-items:center;width:2.5rem;flex-shrink:0}
+.flow-dot{width:2rem;height:2rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#fff;flex-shrink:0}
+.flow-connector{width:2px;flex:1;background:var(--border);min-height:1rem}
+.flow-content{flex:1;padding-bottom:1.5rem}
+.flow-content h4{font-size:.9375rem;margin-bottom:.25rem}
+.flow-content p{font-size:.875rem;color:var(--text-muted)}
+
+footer{max-width:1100px;margin:0 auto;padding:2rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.8125rem}
+
+@media(max-width:640px){
+  .hero h1{font-size:1.625rem}
+  nav .links{display:none}
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  section{padding:2rem 1.25rem}
+}
+</style>
+</head>
+<body>
+
+<nav>
+<div class="inner">
+  <span class="brand">Cheat Detection System</span>
+  <div class="links">
+    <a href="#summary">Summary</a>
+    <a href="#workflow">Workflow</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#components">Components</a>
+    <a href="#data-flow">Data Flow</a>
+    <a href="#ml">ML Pipeline</a>
+    <a href="#questions">Q&amp;A</a>
+  </div>
+</div>
+</nav>
+
+<div class="hero">
+<h1>Real-Time Cheat Detection for Multiplayer Games</h1>
+<p class="subtitle">A streaming analytics pipeline that detects aimbot, speedhack, wallhack, and triggerbot cheats in under 5 seconds using rule-based thresholds and dual-paradigm ML (XGBoost + LSTM Autoencoder), with live Grafana observability.</p>
+<div class="tags">
+  <span class="tag tag-go">Go 1.22</span>
+  <span class="tag tag-py">Python 3.11</span>
+  <span class="tag tag-kafka">Apache Kafka</span>
+  <span class="tag tag-ml">XGBoost + LSTM</span>
+  <span class="tag tag-rt">Real-Time 60Hz</span>
+  <span class="tag tag-docker">Docker Compose</span>
+</div>
+</div>
+
+<!-- SUMMARY -->
+<section id="summary">
+<h2>Project Summary</h2>
+<p class="section-sub">ENGR 5785G - Real-Time Data Analytics for IoT</p>
+<div class="grid-2">
+<div class="card">
+  <h3>The Problem</h3>
+  <p>Cheating in online multiplayer games costs the industry billions annually. Most anti-cheat systems are reactive, running post-match analysis that takes hours or days, by which time the damage to player experience is done. Client-side anti-cheat can be bypassed by sophisticated cheaters who modify game memory or inject code.</p>
+</div>
+<div class="card">
+  <h3>Our Solution</h3>
+  <p>A server-side, real-time detection pipeline. The game server is authoritative (no client-side trust), computes spatial context and publishes 60 telemetry events per second per player through Kafka to a feature engine that computes 18 behavioral features over sliding windows, then runs both rule-based threshold checks and ML inference (supervised + unsupervised) to detect cheats within seconds.</p>
+</div>
+<div class="card">
+  <h3>Why It Matters</h3>
+  <p>This system detects cheats in real-time (under 5 seconds), classifies the specific cheat type (not just binary cheater/clean), detects unknown novel cheats via anomaly detection, and provides full explainability via feature importances and threshold breakdowns.</p>
+</div>
+<div class="card">
+  <h3>Key Results</h3>
+  <p>The rule engine achieves deterministic detection with zero false positives due to physics-derived thresholds. The XGBoost classifier achieves 96.1% accuracy on the CS2CD test set. The LSTM autoencoder flags anomalous behavior patterns unseen during training, catching novel cheat types that supervised models miss entirely.</p>
+</div>
+</div>
+</section>
+
+<!-- WORKFLOW -->
+<section id="workflow">
+<h2>End-to-End Workflow</h2>
+<p class="section-sub">How data flows from a player's keystroke to a cheat alert on the dashboard</p>
+
+<div class="flow">
+
+<div class="flow-step">
+<div class="flow-line"><div class="flow-dot" style="background:var(--accent)">1</div><div class="flow-connector"></div></div>
+<div class="flow-content">
+  <h4>Player Input (Browser)</h4>
+  <p>The HTML5 game client captures WASD keystrokes, mouse position, click-to-shoot, and cheat toggles (F5-F8). Every animation frame (~60fps), it sends a JSON input packet over WebSocket to the game server. The client is a pure renderer with zero game logic; all authority lives server-side.</p>
+</div>
+</div>
+
+<div class="flow-step">
+<div class="flow-line"><div class="flow-dot" style="background:var(--teal)">2</div><div class="flow-connector"></div></div>
+<div class="flow-content">
+  <h4>Game Server Tick (Go, 60Hz)</h4>
+  <p>The authoritative game loop runs at 60 ticks/second. Each tick: (a) read queued player inputs and bot AI decisions, (b) compute velocity from WASD with acceleration and friction damping, (c) apply any active cheat overrides server-side, (d) resolve wall collisions, (e) raycast hit detection for shooting, (f) compute spatial context (nearest enemy distance, line-of-sight, aim-to-enemy offset). This produces a <code>PlayerTelemetry</code> struct with 18 raw fields per player per tick.</p>
+</div>
+</div>
+
+<div class="flow-step">
+<div class="flow-line"><div class="flow-dot" style="background:var(--purple)">3</div><div class="flow-connector"></div></div>
+<div class="flow-content">
+  <h4>Kafka Streaming</h4>
+  <p>Telemetry is published asynchronously to Kafka topic <code>telemetry.raw</code> (keyed by player ID for partition affinity). Kill events go to <code>events.kills</code>. Kafka runs in KRaft mode (no ZooKeeper) with 4 partitions per topic and 1-hour retention. At 9 players and 60Hz, this is ~540 events/sec steady-state throughput.</p>
+</div>
+</div>
+
+<div class="flow-step">
+<div class="flow-line"><div class="flow-dot" style="background:var(--green)">4</div><div class="flow-connector"></div></div>
+<div class="flow-content">
+  <h4>Feature Engine (Sliding Windows)</h4>
+  <p>An in-process Go engine maintains per-player ring buffers (1s=60 ticks, 5s=300, 30s=1800). On each telemetry event, it computes 18 derived features: aim dynamics (snap detection, lock ratio), combat stats (hit rate, kill speed), movement profile (speed, direction changes), and spatial correlation (prefire ratio, reaction time, tracking score). The full feature vector is published to <code>features.computed</code>.</p>
+</div>
+</div>
+
+<div class="flow-step">
+<div class="flow-line"><div class="flow-dot" style="background:var(--orange)">5</div><div class="flow-connector"></div></div>
+<div class="flow-content">
+  <h4>Rule-Based Detection (Instant)</h4>
+  <p>Six threshold rules check every feature vector. Each rule's threshold sits in a dead zone between what's physically achievable by a human and what the cheat produces. For example, <code>speed_cap</code> triggers at 7.0 when the physics cap is 5.0 and speedhack pushes speed to 12.5. Alerts fire to Kafka <code>alerts.detections</code> and increment Prometheus counters.</p>
+</div>
+</div>
+
+<div class="flow-step">
+<div class="flow-line"><div class="flow-dot" style="background:var(--red)">6</div><div class="flow-connector"></div></div>
+<div class="flow-content">
+  <h4>ML Inference (XGBoost + LSTM)</h4>
+  <p>The Python ML service consumes feature vectors from Kafka. XGBoost classifies every tick into one of 6 classes (none, cheater, aimbot, speedhack, wallhack, triggerbot). The LSTM autoencoder processes 1-second sequences (60 timesteps) and computes reconstruction error as an anomaly score. An alert combiner merges both signals with a 5-second per-player cooldown.</p>
+</div>
+</div>
+
+<div class="flow-step">
+<div class="flow-line"><div class="flow-dot" style="background:#495057">7</div></div>
+<div class="flow-content">
+  <h4>Observability (Prometheus + Grafana)</h4>
+  <p>Prometheus scrapes 17 metrics from the game server and ML service every 5 seconds. Two Grafana dashboards visualize pipeline health (tick duration, throughput, model status) and detection analytics (alert rates by rule, ML predictions pie chart, anomaly score heatmap). During a demo, you see alerts spike within seconds of toggling a cheat.</p>
+</div>
+</div>
+
+</div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture">
+<h2>Technical Architecture</h2>
+<p class="section-sub">System topology, technology choices, and design rationale</p>
+
+<div class="diagram-box" style="margin-bottom:2rem">
+<pre>
+                                Docker Compose (7 containers)
+
+   Browser (:80)              Game Server (:8080)                 Apache Kafka (:9092)
+  +----------------+   WS   +------------------------+          +------------------+
+  | HTML5 Canvas   |&lt;------&gt;| WebSocket Handler      |          |                  |
+  | game.js        | input/ | Game Loop (60 Hz)      |---------&gt;| telemetry.raw    |
+  | F5-F8 cheats   | state  | 8 Bot AI + Humans      |---------&gt;| events.kills     |
+  +----------------+        | Cheat Simulation       |          |                  |
+                             +----------+-------------+          +--------+---------+
+                                        |                                 |
+                             +----------v-------------+                   |
+                             | Feature Engine (Go)    |          +--------v---------+
+                             | 3 Sliding Windows      |---------&gt;| features.computed|
+                             | 6 Detection Rules      |---------&gt;| alerts.detections|
+                             +------------------------+          +--------+---------+
+                                                                          |
+                             +------------------------+          +--------v---------+
+                             | ML Service (:8000)     |&lt;---------|                  |
+                             | XGBoost Classifier     |---------&gt;| alerts.detections|
+                             | LSTM Autoencoder       |          +------------------+
+                             | Alert Combiner         |
+                             +------------------------+
+
+                             +------------------------+
+                             | Prometheus (:9091)     |  scrapes :8080 and :8000 every 5s
+                             +----------+-------------+
+                                        |
+                             +----------v-------------+
+                             | Grafana (:3000)        |  2 dashboards, auto-provisioned
+                             +------------------------+
+</pre>
+</div>
+
+<div class="grid-2">
+<div class="card">
+  <h3>Why Go for the Game Server?</h3>
+  <p>The game loop must process all players, run physics, raycast, compute spatial context, and publish telemetry within a 16.6ms tick budget. Go's goroutine model handles concurrent WebSocket I/O per player without thread overhead, and its garbage collector has sub-millisecond pauses. The feature engine runs as goroutines within the same process, avoiding network hops for the latency-critical detection path.</p>
+</div>
+<div class="card">
+  <h3>Why Python for ML?</h3>
+  <p>XGBoost and PyTorch have mature, optimized Python bindings. ML inference is not on the critical game loop path; it consumes from Kafka asynchronously. FastAPI provides the REST API for training triggers and health checks. The consumer thread processes feature vectors independently of the HTTP server.</p>
+</div>
+<div class="card">
+  <h3>Why Kafka over Direct Calls?</h3>
+  <p>Kafka decouples the game server from the ML service. If the ML service restarts or falls behind, telemetry is buffered in Kafka (1-hour retention). Multiple consumers can independently read from the same topics. Partition-key affinity ensures all events for one player land on the same partition, preserving ordering for sliding-window computations.</p>
+</div>
+<div class="card">
+  <h3>Why Authoritative Server Architecture?</h3>
+  <p>The game client sends raw input (keys, mouse position), not computed state. All physics, hit detection, and spatial context are computed server-side. This means cheats must be simulated server-side too. The client never has state the server didn't produce, eliminating an entire class of client-side tampering.</p>
+</div>
+<div class="card">
+  <h3>Why Dual-Paradigm ML?</h3>
+  <p>XGBoost (supervised) classifies known cheat types it was trained on. But a cheater could use a novel technique not in the training data. The LSTM autoencoder (unsupervised) learns what normal behavior looks like and flags anything that deviates, catching unknown cheats. Together, they cover both known and unknown threats.</p>
+</div>
+<div class="card">
+  <h3>Why Embedded Feature Engine?</h3>
+  <p>The feature engine runs inside the game server process rather than as a separate service. This eliminates a Kafka consumer hop and network round trip for the rule-based detection path. Rules fire within the same tick the violation occurs, achieving sub-16ms detection latency for the rule engine. Features are still published to Kafka for the ML service to consume asynchronously.</p>
+</div>
+</div>
+</section>
+
+<!-- COMPONENTS -->
+<section id="components">
+<h2>Component Deep Dive</h2>
+<p class="section-sub">Responsibilities, internals, and data contracts for each service</p>
+
+<div class="accordion" style="margin-bottom:2rem">
+
+<details>
+<summary><span class="badge badge-go">Frontend</span> Game Client</summary>
+<div class="acc-body">
+<p><strong>Technology:</strong> HTML5 Canvas (1200x800), vanilla JavaScript, CSS. Served by nginx on port 80. No frameworks, no build step.</p>
+<p><strong>Responsibilities:</strong> Render the game state received from the server. Capture player input (WASD, mouse, shooting, cheat toggles F5-F8). Send input packets over WebSocket every frame. Implement client-side fog of war (90-degree vision cone, 300px range, wall occlusion via raycasting).</p>
+<p><strong>Data sent (per frame):</strong></p>
+<pre><code>{"keys":{"w":true,"a":false,"s":false,"d":true},"mouse":{"x":450,"y":300},"shooting":true,"cheats":{"aimbot":false,"speedhack":false,"wallhack":false,"triggerbot":false}}</code></pre>
+<p><strong>Data received (per tick):</strong> <code>GameStateMsg</code> containing tick number, all player states (id, x, y, aim, hp, alive, shooting), kill feed entries. Wall definitions sent once on initial connection.</p>
+<p><strong>Design decision:</strong> The client is intentionally minimal. It has zero game logic. Position, velocity, hit detection are all server-computed. The client is purely a renderer, making it impossible for client-side modifications to affect game state.</p>
+</div>
+</details>
+
+<details>
+<summary><span class="badge badge-go">Go</span> Game Server</summary>
+<div class="acc-body">
+<p><strong>Technology:</strong> Go 1.22, gorilla/websocket, segmentio/kafka-go, prometheus/client_golang. Single binary, port 8080.</p>
+<p><strong>Responsibilities:</strong> Authoritative game loop at 60Hz. Player and bot management (16 slots). WebSocket I/O. Cheat simulation. Spatial context computation. Telemetry publishing to Kafka. Feature engineering and rule-based detection (via embedded feature engine). Prometheus metrics exposure.</p>
+
+<p><strong>Tick Processing Order (every 16.6ms):</strong></p>
+<p>1. Bot AI Update - each bot computes movement direction, finds nearest visible enemy, decides whether to shoot<br>
+2. Apply Input - read WASD keys, compute acceleration, apply friction (0.85 damping), update position (X += VX, Y += VY), compute aim angle from mouse coordinates<br>
+3. Apply Cheats - if cheat flags are active, override aim/speed/shooting behavior server-side<br>
+4. Wall Collision - AABB resolution, push player circles out of wall rectangles<br>
+5. Combat - raycast from shooter along aim angle, check circle intersection with enemies, deal 20 HP damage per hit, handle death and respawn timers<br>
+6. Spatial Context - for each player, compute distance/angle to nearest enemy, line-of-sight check, aim-to-enemy offset, visibility timing<br>
+7. Publish Telemetry - emit PlayerTelemetry to Kafka and to the feature engine<br>
+8. Broadcast State - send current game state to all WebSocket clients</p>
+
+<p><strong>Physics Constants:</strong> MaxSpeed=5.0 units/tick, MoveAccel=1.5, DamagePerHit=20, MaxHP=100, PlayerRadius=15px, Friction=0.85, RespawnDelay=3s, Arena=1200x800px</p>
+
+<p><strong>Endpoints:</strong> <code>/ws</code> (game WebSocket), <code>/dashboard-ws</code> (monitoring WebSocket), <code>/metrics</code> (Prometheus)</p>
+</div>
+</details>
+
+<details>
+<summary><span class="badge badge-go">Go</span> Cheat Simulation</summary>
+<div class="acc-body">
+<p>Cheats are simulated server-side, applied after input processing but before hit detection. Each cheat type produces distinct statistical signatures that the detection pipeline can identify.</p>
+
+<p><strong>Aimbot (F5):</strong> Snaps the player's aim angle directly to the nearest visible enemy using <code>atan2(enemy.y - player.y, enemy.x - player.x)</code>. This produces large <code>aim_delta</code> spikes (often >2.0 rad in a single tick) and drives <code>aim_to_enemy_offset</code> to near zero. A human mouse can rarely produce >0.5 rad/tick.</p>
+
+<p><strong>Speedhack (F6):</strong> Multiplies velocity by 2.5x after the normal speed cap. Normal max speed is 5.0 units/tick; with speedhack, the player moves at up to 12.5. The <code>speed_max_1s</code> feature immediately exceeds the physics limit.</p>
+
+<p><strong>Wallhack (F7):</strong> Interpolates aim 10% per tick toward the nearest enemy, even through walls. This creates a pattern where <code>aim_to_enemy_offset</code> stays small while <code>nearest_enemy_visible</code> is false - the player's aim tracks enemies they cannot see. The <code>prefire_ratio</code> feature captures this.</p>
+
+<p><strong>Triggerbot (F8):</strong> Auto-fires when aim is within 0.1 radians of any visible enemy. This produces near-zero reaction times (1-2 ticks = 16-33ms) compared to human reaction times of 150-250ms (9-15 ticks). The <code>reaction_time_mean_5s</code> feature drops below 3 ticks.</p>
+</div>
+</details>
+
+<details>
+<summary><span class="badge badge-go">Go</span> Bot AI</summary>
+<div class="acc-body">
+<p>Bots fill empty player slots (default 8) and generate baseline "normal" telemetry. They simulate human-like but imperfect gameplay.</p>
+
+<p><strong>Movement:</strong> Random direction changes every 1-3 seconds. Velocity is applied through the same <code>ApplyInput()</code> path as human players, subject to the same speed cap and friction.</p>
+
+<p><strong>Aiming:</strong> Track nearest visible enemy with a 400-800ms simulated reaction delay. Aim is interpolated at 15% per tick (not snapped) with +/-0.6 radian random offset, producing realistic-looking but inaccurate tracking.</p>
+
+<p><strong>Shooting:</strong> Fire when aim is within 0.4 radians of the target. Combined with the aim inaccuracy, this produces natural-looking but low hit rates.</p>
+
+<p><strong>Cheat Cycling (when enabled):</strong> Each bot randomly activates one cheat type for 10-15 seconds every 30-60 seconds, cycling through all four types. This generates labeled training data for the ML models.</p>
+</div>
+</details>
+
+<details>
+<summary><span class="badge badge-go">Go</span> Feature Engine</summary>
+<div class="acc-body">
+<p><strong>Architecture:</strong> Per-player ring buffer processor with three sliding windows. Runs inside the game server process (not a separate service). Cleanup of inactive players after 60 seconds of no telemetry.</p>
+
+<p><strong>Sliding Windows:</strong> 1 second (60 ticks), 5 seconds (300 ticks), 30 seconds (1800 ticks). Each window is a slice of the ring buffer.</p>
+
+<p><strong>18 Computed Features:</strong></p>
+
+<p><strong>Aim Dynamics (5):</strong> <code>aim_delta_mean_1s</code>, <code>aim_delta_mean_5s</code> (average aim change - elevated with aimbot), <code>aim_delta_max_1s</code> (peak aim snap - detects single-tick snaps), <code>aim_snap_count_5s</code> (count of aim_delta > 0.5 rad), <code>aim_to_enemy_offset_mean_5s</code> (how closely aim tracks enemy - near zero with aimbot).</p>
+
+<p><strong>Combat (5):</strong> <code>hit_rate_5s</code>, <code>hit_rate_30s</code> (shot accuracy over time), <code>shots_fired_5s</code> (shooting frequency), <code>kills_per_30s</code> (kill rate), <code>time_to_kill_mean_30s</code> (average kill speed).</p>
+
+<p><strong>Movement (4):</strong> <code>speed_mean_1s</code>, <code>speed_mean_5s</code> (average velocity), <code>speed_max_1s</code> (peak speed - detects speedhack), <code>direction_change_count_5s</code> (movement erraticism).</p>
+
+<p><strong>Spatial Correlation (4):</strong> <code>aim_lock_ratio_5s</code> (fraction of visible-enemy time with aim locked within 0.1 rad), <code>prefire_ratio_5s</code> (fraction of shots fired while enemy not visible - detects wallhack), <code>reaction_time_mean_5s</code> (ticks from enemy visibility to first shot), <code>enemy_tracking_score_5s</code> (Pearson correlation between aim changes and enemy angle changes).</p>
+
+<p><strong>Output:</strong> Publishes the full feature vector (18 raw telemetry + 18 computed features) to Kafka <code>features.computed</code> on every tick.</p>
+</div>
+</details>
+
+<details>
+<summary><span class="badge badge-go">Go</span> Rule-Based Detection</summary>
+<div class="acc-body">
+<p>Six threshold rules run on every computed feature vector. Each threshold is derived from the game's physics constants, not statistical tuning, so there is a deterministic gap between normal and cheat values.</p>
+
+<div style="overflow-x:auto">
+<table>
+<tr><th>Rule</th><th>Condition</th><th>Detects</th><th>Normal Range</th><th>Cheat Range</th><th>Why This Threshold</th></tr>
+<tr><td><code>speed_cap</code></td><td>speed_max_1s > 7.0</td><td>Speedhack</td><td>0-5.0</td><td>~12.5</td><td>Physics cap is 5.0. 7.0 gives 40% buffer for floating point and wall collision edge cases.</td></tr>
+<tr><td><code>aim_snap</code></td><td>aim_delta_max_1s > 2.0 rad</td><td>Aimbot</td><td>0-0.5 rad</td><td>~3.14 rad</td><td>A mouse at 60Hz can't produce >0.5 rad/tick. Aimbot snaps up to pi radians. 2.0 catches any snap >115 degrees.</td></tr>
+<tr><td><code>inhuman_accuracy</code></td><td>hit_rate_5s > 85% AND shots > 30</td><td>Aimbot</td><td>20-50%</td><td>~100%</td><td>85% over 30+ shots is unsustainable by human aim. The shot count minimum prevents lucky bursts from triggering.</td></tr>
+<tr><td><code>aim_lock</code></td><td>aim_lock_ratio > 90% AND enemies visible</td><td>Aimbot</td><td>5-30%</td><td>~100%</td><td>Maintaining aim within 0.1 rad of enemy 90%+ of visible time requires inhuman precision.</td></tr>
+<tr><td><code>prefire</code></td><td>prefire_ratio > 60% AND shots > 20</td><td>Wallhack</td><td>0-15%</td><td>>60%</td><td>Legitimate players almost never shoot at enemies they can't see. Wallhack causes consistent through-wall targeting.</td></tr>
+<tr><td><code>triggerbot_reaction</code></td><td>reaction_time < 3 ticks AND shots > 10</td><td>Triggerbot</td><td>9-15 ticks</td><td>1-2 ticks</td><td>3 ticks = 50ms. Human reaction minimum is ~150ms (9 ticks). Triggerbot fires within 1-2 ticks.</td></tr>
+</table>
+</div>
+</div>
+</details>
+
+<details>
+<summary><span class="badge badge-py">Python</span> ML Service</summary>
+<div class="acc-body">
+<p><strong>Technology:</strong> Python 3.11, FastAPI, XGBoost 2.0.3, PyTorch 2.3.0, scikit-learn 1.5.0. Port 8000.</p>
+
+<p><strong>Responsibilities:</strong> Consume feature vectors from Kafka. Run dual-paradigm ML inference (XGBoost per-tick, LSTM per-second). Combine signals and publish alerts. Expose REST API for training triggers. Expose Prometheus metrics.</p>
+
+<p><strong>Consumer Architecture:</strong> A Kafka consumer thread reads from <code>features.computed</code>. For each message, it routes to a per-player <code>PlayerBuffer</code> that maintains a 60-timestep sequence. XGBoost runs on every tick (single feature vector). The LSTM autoencoder runs every 60 ticks (1 full second of data).</p>
+
+<p><strong>Alert Combiner:</strong> If XGBoost predicts a cheat type with >80% confidence, it triggers. If the autoencoder's reconstruction error exceeds the threshold (mean + 3 std), it triggers. If both trigger, the alert is labeled "ensemble" with the higher confidence. A 5-second per-player cooldown prevents flooding. Alerts are published to Kafka <code>alerts.detections</code>.</p>
+
+<p><strong>Endpoints:</strong> <code>GET /health</code> (liveness), <code>GET /status</code> (model state + sample count), <code>POST /train</code> (retrain on live data), <code>POST /train/cs2cd</code> (retrain on CS2CD dataset), <code>GET /metrics</code> (Prometheus)</p>
+</div>
+</details>
+
+<details>
+<summary><span class="badge badge-infra">Infra</span> Observability Stack</summary>
+<div class="acc-body">
+<p><strong>Prometheus (v2.51):</strong> Scrapes game-server:8080/metrics and ml-service:8000/metrics every 5 seconds. 24-hour retention. 17 total metrics across both services.</p>
+
+<p><strong>Grafana (v10.4):</strong> Auto-provisioned with two dashboards:</p>
+
+<p><strong>Pipeline Health:</strong> Active Players (gauge), Tick Duration (histogram), WebSocket Connections (stat), Telemetry Rate (time series by topic), Features Published Rate, Kafka Errors (red if >0), Feature Processing Latency (p99), Feature Active Players, Model Loaded status (XGBoost and Autoencoder).</p>
+
+<p><strong>Detection Analytics:</strong> Rule Engine Alerts (stacked time series by rule name), ML Alerts by Model (time series), Total Alert Rate (stat, color-coded green/yellow/red), XGBoost/Autoencoder Latency (p99), Predictions by Type (pie chart), Anomaly Score Distribution (heatmap), Training Samples (stat), Service Mode (collection vs inference).</p>
+</div>
+</details>
+
+</div>
+</section>
+
+<!-- DATA FLOW -->
+<section id="data-flow">
+<h2>Data Flow and Responsibilities</h2>
+<p class="section-sub">What each component produces and consumes</p>
+
+<div class="table-wrap" style="margin-bottom:2rem">
+<table>
+<tr><th>From</th><th>To</th><th>Channel</th><th>Data</th><th>Rate</th></tr>
+<tr><td>Browser</td><td>Game Server</td><td>WebSocket</td><td>Input state (keys, mouse, shooting, cheat flags)</td><td>~60 msg/sec per client</td></tr>
+<tr><td>Game Server</td><td>Browser</td><td>WebSocket</td><td>Game state (player positions, health, kills, walls)</td><td>~60 msg/sec per client</td></tr>
+<tr><td>Game Server</td><td>Kafka</td><td><code>telemetry.raw</code></td><td>PlayerTelemetry (18 fields per player per tick)</td><td>~540 msg/sec</td></tr>
+<tr><td>Game Server</td><td>Kafka</td><td><code>events.kills</code></td><td>KillEvent (killer, victim, distance, reaction time)</td><td>Variable</td></tr>
+<tr><td>Feature Engine</td><td>Kafka</td><td><code>features.computed</code></td><td>Feature vector (18 raw + 18 computed fields)</td><td>~60 msg/sec per human</td></tr>
+<tr><td>Feature Engine</td><td>Kafka</td><td><code>alerts.detections</code></td><td>Rule alert (rule name, cheat type, confidence, value)</td><td>0 during clean play</td></tr>
+<tr><td>ML Service</td><td>Kafka</td><td><code>alerts.detections</code></td><td>ML alert (model, cheat type, confidence, anomaly score)</td><td>0 during clean play</td></tr>
+<tr><td>Game Server</td><td>Prometheus</td><td>HTTP scrape</td><td>10 metrics (tick duration, player count, Kafka stats, rule alerts)</td><td>Every 5 sec</td></tr>
+<tr><td>ML Service</td><td>Prometheus</td><td>HTTP scrape</td><td>7 metrics (predictions, alerts, latency, anomaly scores, model status)</td><td>Every 5 sec</td></tr>
+</table>
+</div>
+
+<h3 style="margin-bottom:1rem">Kafka Topics</h3>
+<div class="table-wrap">
+<table>
+<tr><th>Topic</th><th>Partitions</th><th>Key</th><th>Retention</th><th>Publisher</th><th>Consumer</th></tr>
+<tr><td><code>telemetry.raw</code></td><td>4</td><td>player_id</td><td>1 hour</td><td>Game Server</td><td>Archive / debug</td></tr>
+<tr><td><code>events.kills</code></td><td>4</td><td>killer_id</td><td>1 hour</td><td>Game Server</td><td>Archive / debug</td></tr>
+<tr><td><code>features.computed</code></td><td>4</td><td>player_id</td><td>1 hour</td><td>Feature Engine</td><td>ML Service</td></tr>
+<tr><td><code>alerts.detections</code></td><td>4</td><td>player_id</td><td>1 hour</td><td>Feature Engine + ML Service</td><td>Dashboard</td></tr>
+</table>
+</div>
+</section>
+
+<!-- ML PIPELINE -->
+<section id="ml">
+<h2>ML Pipeline</h2>
+<p class="section-sub">Dataset, training, models, and inference</p>
+
+<div class="grid-2" style="margin-bottom:2rem">
+<div class="card">
+  <h3>Training Dataset: CS2CD</h3>
+  <p>The CS2CD (Counter-Strike 2 Cheat Detection) dataset contains 795 real competitive CS2 matches: 451 with at least one VAC-banned cheater and 344 clean matches. Each match is a CSV.gz with 10 rows per tick (5v5) and 247 columns, plus a JSON metadata file identifying cheater Steam IDs.</p>
+  <p style="margin-top:.5rem">Our parser maps CS2 fields (position XYZ, velocity, yaw, firing state, health) to our 2D telemetry schema, dropping the Z axis. Nearest-enemy distance, angle, and visibility are recomputed from all player positions per tick. The same 18 sliding-window features are extracted using a Python mirror of the Go feature engine, ensuring training and inference feature distributions match.</p>
+</div>
+<div class="card">
+  <h3>Why This Dataset?</h3>
+  <p>CS2CD provides ground-truth labels from Valve's VAC system (actual confirmed cheaters), not synthetic or self-reported data. The labels are binary ("cheater" vs "none"), which our system extends with specific cheat types (aimbot, speedhack, wallhack, triggerbot) from synthetic bot-generated data in our game. This two-phase approach validates the feature engineering on real match data while enabling fine-grained classification from controlled synthetic data.</p>
+</div>
+</div>
+
+<h3 style="margin-bottom:1rem">XGBoost Classifier (Supervised)</h3>
+<div class="card" style="margin-bottom:2rem">
+<div class="grid-2">
+<div>
+  <p><strong>Purpose:</strong> Classify known cheat types that appear in the training data.</p>
+  <p style="margin-top:.5rem"><strong>Input:</strong> Single normalized feature vector (18 features).</p>
+  <p style="margin-top:.5rem"><strong>Output:</strong> Multi-class probabilities over 6 classes (none, cheater, aimbot, speedhack, wallhack, triggerbot).</p>
+  <p style="margin-top:.5rem"><strong>Alert condition:</strong> Predicted class is not "none" AND max probability exceeds 80%.</p>
+  <p style="margin-top:.5rem"><strong>Explainability:</strong> Top-3 feature importances (gain-based) are included in every alert, showing which behavioral dimensions drove the prediction.</p>
+</div>
+<div>
+  <p><strong>Hyperparameters:</strong></p>
+  <pre><code>max_depth: 6
+learning_rate: 0.1
+n_estimators: 200
+subsample: 0.8
+colsample_bytree: 0.8
+objective: multi:softprob</code></pre>
+  <p style="margin-top:.5rem"><strong>Training:</strong> Split by player ID (not sample) to prevent data leakage. 80% train, 20% test.</p>
+</div>
+</div>
+</div>
+
+<h3 style="margin-bottom:1rem">LSTM Autoencoder (Unsupervised)</h3>
+<div class="card" style="margin-bottom:2rem">
+<div class="grid-2">
+<div>
+  <p><strong>Purpose:</strong> Detect novel cheats not in the training data by measuring behavioral deviation from normal play.</p>
+  <p style="margin-top:.5rem"><strong>Input:</strong> Sequence of 60 consecutive normalized feature vectors (1 second of play at 60Hz).</p>
+  <p style="margin-top:.5rem"><strong>Architecture:</strong> Encoder: LSTM(18 to 64) then LSTM(64 to 32). Decoder: RepeatVector(60) then LSTM(32 to 32) then LSTM(32 to 64) then Dense(64 to 18). Loss: MSE.</p>
+  <p style="margin-top:.5rem"><strong>Training:</strong> Clean players only. The model learns to reconstruct normal behavior sequences. Cheating produces sequences the model has never seen, yielding high reconstruction error.</p>
+</div>
+<div>
+  <p><strong>Anomaly Score:</strong> MSE between input and reconstructed output. Calibrated from training distribution.</p>
+  <p style="margin-top:.5rem"><strong>Threshold:</strong> mean + 3 standard deviations of clean reconstruction errors. Anything above this is flagged as anomalous.</p>
+  <p style="margin-top:.5rem"><strong>Why LSTM over Vanilla Autoencoder:</strong> Cheating has temporal signatures. An aimbot snap is a sequence: normal aim then sudden jump then lock-on. A vanilla autoencoder treats each timestep independently and misses these temporal patterns. LSTM captures the sequential nature of cheating behavior.</p>
+  <p style="margin-top:.5rem"><strong>Inference frequency:</strong> Every 60 ticks (1 second), not every tick, to accumulate a full sequence.</p>
+</div>
+</div>
+</div>
+
+<h3 style="margin-bottom:1rem">Alert Combiner (Ensemble)</h3>
+<div class="card" style="margin-bottom:2rem">
+<div class="table-wrap">
+<table>
+<tr><th>Scenario</th><th>Alert Source</th><th>Cheat Type</th><th>Confidence</th></tr>
+<tr><td>XGBoost triggers, autoencoder doesn't</td><td><code>xgboost</code></td><td>Predicted class (e.g., "aimbot")</td><td>XGBoost probability</td></tr>
+<tr><td>Autoencoder triggers, XGBoost doesn't</td><td><code>autoencoder</code></td><td><code>unknown</code></td><td>Mapped from anomaly score (std deviations / 5)</td></tr>
+<tr><td>Both trigger</td><td><code>ensemble</code></td><td>XGBoost's predicted class</td><td>max(XGBoost probability, autoencoder confidence)</td></tr>
+</table>
+</div>
+<p style="margin-top:1rem">A per-player, per-cheat-type cooldown of 5 seconds prevents alert flooding. If the same player triggers the same cheat type within 5 seconds, the duplicate alert is suppressed.</p>
+</div>
+
+<h3 style="margin-bottom:1rem">Feature Normalization</h3>
+<div class="card">
+<p><strong>Method:</strong> Z-score normalization (StandardScaler) fitted on the training set. Each of the 18 features is transformed to zero mean and unit variance. The fitted scaler is saved as <code>scaler.joblib</code> and applied to every incoming feature vector at inference time before passing to the models.</p>
+<p style="margin-top:.5rem"><strong>Why normalize:</strong> Features have vastly different scales. <code>speed_max_1s</code> ranges 0-12.5, while <code>prefire_ratio_5s</code> ranges 0-1. Without normalization, the LSTM autoencoder's reconstruction error would be dominated by high-magnitude features, making it insensitive to anomalies in low-magnitude features.</p>
+</div>
+</section>
+
+<!-- COMPONENT Q&A -->
+<section id="component-qa">
+<h2>Component Q&amp;A</h2>
+<p class="section-sub">Conceptual questions for each component, plus graduate-level research questions</p>
+
+<h3 style="margin:1.5rem 0 .75rem"><span class="badge badge-go">Go</span> Game Server</h3>
+<div class="qa">
+<details><summary>Why does the game server run at exactly 60Hz rather than as fast as possible?</summary><div class="qa-body">A fixed tick rate decouples game logic from hardware performance. If the loop ran "as fast as possible," a faster server would produce more telemetry events per second, skewing sliding-window features. 60Hz also matches typical client frame rates, and the 16.6ms budget is comfortably achievable for 16-player physics and raycasting on commodity hardware.</div></details>
+<details><summary>Why is the game server authoritative rather than peer-to-peer?</summary><div class="qa-body">In peer-to-peer architectures, clients compute their own position and report it to others. A cheater can simply lie about their position. An authoritative server takes raw input (keys pressed, mouse coords) and computes all state itself. The client cannot claim a position the physics engine didn't produce, eliminating positional cheats entirely.</div></details>
+<details><summary>How does the spatial context computation handle multiple enemies?</summary><div class="qa-body">For each player, the server iterates over all other alive players, computes Euclidean distance and angle, checks line-of-sight via raycasting against walls, and tracks the nearest one. Fields like <code>EnemiesVisible</code> count all enemies with clear LOS, while <code>NearestEnemyDist</code> and <code>NearestEnemyAngle</code> refer only to the closest. <code>TimeSinceVisible</code> tracks when any enemy was last visible.</div></details>
+<details><summary>What happens when a human player disconnects mid-game?</summary><div class="qa-body">The server replaces the human's slot with a new bot. The bot is initialized at the player's last spawn point with fresh AI state. The WebSocket connection is cleaned up, and <code>WebSocketConns</code> and <code>PlayersActive</code> metrics are updated. The feature engine's player processor remains active for 60 seconds before cleanup, so the last feature vectors are still available to the ML service.</div></details>
+<details><summary>Why use gorilla/websocket instead of gRPC or HTTP long polling?</summary><div class="qa-body">WebSocket provides full-duplex, low-latency communication. The server pushes state at 60Hz and the client pushes input at ~60Hz. HTTP long polling would add per-request overhead. gRPC is heavier to set up for browser clients (requires grpc-web proxy). WebSocket is the standard for real-time browser games and has native browser support.</div></details>
+<details><summary>[Graduate] How would you extend this architecture to support 10,000 concurrent players across multiple server instances?</summary><div class="qa-body">You would shard players across game server instances (one per match or arena), front them with a matchmaking service, and have each instance publish telemetry to Kafka independently. The feature engine would scale horizontally via Kafka consumer groups (one consumer per partition). The ML service similarly scales via consumer groups. Kafka's partitioning by player_id ensures ordering. State synchronization between game servers isn't needed since each runs an independent match.</div></details>
+<details><summary>[Graduate] What are the tradeoffs of embedding the feature engine inside the game server versus running it as a separate service?</summary><div class="qa-body">Embedding eliminates a network hop and Kafka consumer lag for rule-based detection, achieving sub-tick latency. The cost is coupling: the feature engine's CPU usage competes with the game loop's 16.6ms budget. A separate service would add 50-200ms latency (Kafka consumer poll + processing) but would be independently scalable and wouldn't risk tick budget overruns under high feature computation load. For our scale (9 players), embedding is clearly better.</div></details>
+<details><summary>[Graduate] How would tick rate affect detection accuracy, and what is the minimum tick rate at which the system would still be effective?</summary><div class="qa-body">Lower tick rates reduce temporal resolution. At 10Hz, a 1-second window has only 10 samples instead of 60, making features like <code>aim_delta_max</code> less discriminating (aimbot snaps might span 2 ticks instead of 1, halving the observed aim_delta). Below ~20Hz, triggerbot detection degrades because reaction times are measured in ticks, and 3 ticks at 20Hz is 150ms, which is within human range. Speed and accuracy features are less affected since they aggregate over time windows.</div></details>
+<details><summary>[Graduate] Could an adversarial cheater adapt their cheat to stay below the rule engine thresholds?</summary><div class="qa-body">Yes, a "soft aimbot" could interpolate aim over several ticks instead of snapping, keeping aim_delta below 2.0. A throttled speedhack could stay at 6.9 instead of 12.5. This is exactly why the ML models exist alongside the rules. The LSTM autoencoder detects behavioral patterns that differ from the training distribution, even if individual feature values stay below hard thresholds. The XGBoost model can learn subtler statistical signatures that combinations of rules miss.</div></details>
+</div>
+
+<h3 style="margin:1.5rem 0 .75rem"><span class="badge badge-go">Go</span> Feature Engine</h3>
+<div class="qa">
+<details><summary>Why three different window sizes (1s, 5s, 30s)?</summary><div class="qa-body">Different cheats manifest at different time scales. An aimbot snap happens in a single tick but is visible in the 1-second max. Speedhack is detectable within 1 second of activation. Hit rate and accuracy require 5 seconds of sustained fire to distinguish skill from luck. Kill rate and time-to-kill need 30 seconds to accumulate meaningful statistics. Using multiple windows captures both instantaneous events and sustained behavioral patterns.</div></details>
+<details><summary>What does the Pearson correlation in enemy_tracking_score actually measure?</summary><div class="qa-body">It measures how closely a player's aim movements mirror the enemy's angular movements. If the enemy moves left and the player's aim also moves left by a proportional amount, the correlation is high (~1.0). Aimbot and wallhack produce near-perfect correlation because the aim is directly computed from the enemy's position. Normal players have noisy, imperfect tracking, producing correlation values of 0.2-0.5.</div></details>
+<details><summary>How does the ring buffer prevent memory issues with long-running sessions?</summary><div class="qa-body">The ring buffer is capped at 1800 entries (30 seconds at 60Hz). When a new event arrives and the buffer is full, the oldest entry is dropped. This means memory usage per player is bounded at 1800 * sizeof(PlayerTelemetry), regardless of how long the session runs. Inactive players are cleaned up after 60 seconds, freeing the entire buffer.</div></details>
+<details><summary>Why is prefire_ratio computed as shots-while-invisible / total-shots rather than a time-based metric?</summary><div class="qa-body">A time-based metric would penalize players who spend time near walls or in enclosed spaces where enemies happen to be on the other side. By conditioning on shooting ticks only, the metric specifically measures the pattern of firing at hidden targets, not being near them. A normal player rarely shoots when no enemy is visible; a wallhacker consistently does because they can see through walls.</div></details>
+<details><summary>[Graduate] How would feature drift affect detection accuracy over time if the player population changes?</summary><div class="qa-body">If the player skill distribution shifts (e.g., a tournament with pro players), features like hit_rate and reaction_time would shift baseline ranges. Rule engine thresholds are physics-derived and wouldn't be affected. The ML models, however, could see increased false positives or negatives. The auto-retrain mechanism (triggered when the collector accumulates enough new samples) addresses this by periodically retraining on recent data. A more robust approach would be online calibration of the anomaly threshold.</div></details>
+<details><summary>[Graduate] Could you apply the same feature engineering approach to a 3D FPS like CS2 without modification?</summary><div class="qa-body">Most features transfer directly: aim_delta, speed, hit_rate, reaction_time are dimension-agnostic. The main adaptations needed are: (1) adding vertical aim (pitch) since 3D games have elevation, (2) adjusting speed thresholds for 3D movement mechanics (jumping, crouching), (3) recomputing line-of-sight with 3D raycasting instead of 2D, and (4) adjusting the AimToEnemyOffset computation for 3D angles. The sliding-window approach and feature categories would remain identical.</div></details>
+<details><summary>[Graduate] What is the computational complexity of the feature engine per tick, and where are the bottlenecks?</summary><div class="qa-body">Per player per tick: the ring buffer append is O(1). Each feature computation iterates over the window (O(W) where W is window size). With 18 features across 3 windows, worst case is O(18 * 1800) = O(32,400) operations per player. Pearson correlation is the most expensive (two passes over the data). For 9 players, that's ~290K simple operations per tick, well within the 16.6ms budget. The bottleneck at scale would be the spatial context computation (O(N^2) for N players, due to all-pairs distance checking).</div></details>
+</div>
+
+<h3 style="margin:1.5rem 0 .75rem"><span class="badge badge-py">Python</span> ML Service</h3>
+<div class="qa">
+<details><summary>Why XGBoost instead of a neural network for classification?</summary><div class="qa-body">XGBoost excels on tabular data with engineered features. Each feature vector is 18 numeric values with no spatial or sequential structure (the LSTM handles the sequential part). Neural networks outperform on unstructured data (images, text) but XGBoost consistently wins on structured tabular data in benchmarks. It's also interpretable (feature importances), fast (microsecond inference), and requires less training data than deep learning.</div></details>
+<details><summary>Why train the autoencoder on clean data only?</summary><div class="qa-body">The autoencoder learns a compressed representation of "normal" behavior. If trained on cheater data too, it would learn to reconstruct cheating patterns, making them appear normal (low reconstruction error). By only seeing clean data, any cheating behavior produces sequences the model has never learned to reconstruct, resulting in high reconstruction error (anomaly score).</div></details>
+<details><summary>Why split training data by player ID instead of randomly?</summary><div class="qa-body">Random splitting would leak information. If player A has 100 consecutive ticks, random splitting would put some ticks in train and others in test, but they share the same player's behavioral signature. The model would memorize player-specific patterns rather than learning generalizable cheat signatures. Splitting by player ID ensures the model never sees the test players during training, testing true generalization.</div></details>
+<details><summary>What happens when the ML service starts without pre-trained models?</summary><div class="qa-body">It enters "collection" mode. The Kafka consumer still runs and routes messages through the LiveCollector, accumulating feature vectors with their cheat labels. Once enough samples are collected, the POST /train endpoint can be called to train models from scratch. The service transitions to "inference" mode after training, loading the newly trained models and beginning predictions.</div></details>
+<details><summary>How does the autoencoder's anomaly threshold adapt to different games?</summary><div class="qa-body">The threshold is calibrated from the training distribution, not hardcoded. After training on clean data, the model runs inference on all clean training sequences and records the mean and standard deviation of reconstruction errors. The threshold is set at mean + 3*std. This automatically adapts to whatever "normal" looks like in the training data, whether it's our 2D game, CS2, or any other game with the same feature schema.</div></details>
+<details><summary>[Graduate] How would you handle concept drift where player behavior evolves over time (new strategies, meta shifts)?</summary><div class="qa-body">The auto-retrain mechanism partially addresses this. A more robust approach would be: (1) a sliding window of recent clean data for periodic autoencoder recalibration, (2) an ensemble of models trained on different time periods, weighted by recency, (3) monitoring the base rate of anomaly scores; if the clean-player anomaly distribution shifts, the threshold should be recalibrated. For XGBoost, periodic retraining with label feedback (confirmed bans) would keep the classifier current.</div></details>
+<details><summary>[Graduate] What are the failure modes of the dual-paradigm approach, and how would you mitigate them?</summary><div class="qa-body">Failure mode 1: A novel cheat that produces normal feature distributions (e.g., information-only cheats that don't affect aim/speed). Mitigation: add higher-level features like decision quality (did the player make strategically optimal decisions based on information they shouldn't have). Failure mode 2: Feature distribution mismatch between training and deployment (CS2 vs our game). Mitigation: fine-tune on deployment-environment data. Failure mode 3: Adversarial evasion where the cheater modulates behavior to stay below thresholds. Mitigation: longer time windows and sequence-level analysis.</div></details>
+<details><summary>[Graduate] Why not use a transformer-based architecture instead of LSTM for the autoencoder?</summary><div class="qa-body">For 60-timestep sequences with 18 features, LSTM is more parameter-efficient than a transformer. Transformers excel when sequences are long (hundreds to thousands of tokens) and attention patterns are non-local. Our sequences are short and the temporal patterns are local (a snap happens over 2-3 ticks, not across the full second). LSTM captures these short-range dependencies effectively. A transformer would also be harder to train with limited data and would have higher inference latency.</div></details>
+</div>
+
+</section>
+
+<!-- COMPREHENSIVE Q&A -->
+<section id="questions">
+<h2>Comprehensive Q&amp;A</h2>
+<p class="section-sub">Questions a professor or experienced technical reviewer might ask about this project</p>
+
+<div class="qa">
+
+<details><summary>How does this system compare to existing anti-cheat solutions like VAC, EasyAntiCheat, or BattlEye?</summary><div class="qa-body">VAC, EAC, and BattlEye are primarily client-side kernel-level anti-cheat systems. They detect known cheat software signatures (DLL injection, memory modification) rather than behavioral anomalies. Our system is entirely server-side and behavior-based, making it complementary. The advantage of our approach is that it doesn't require kernel access on the player's machine, can't be bypassed by novel cheat software, and provides real-time detection rather than delayed ban waves. The disadvantage is that purely behavioral detection may miss cheats that produce subtle statistical effects or information-only cheats (wallhack without aim tracking).</div></details>
+
+<details><summary>What is the end-to-end latency from cheat activation to dashboard alert, and where are the bottlenecks?</summary><div class="qa-body">The rule engine detects within the same tick (16.6ms). The full pipeline latency is: 1 tick (16.6ms) for telemetry generation, near-zero for in-process feature computation, Kafka publish latency (~5ms async), ML service consumer poll (~500ms worst case), XGBoost inference (~0.1ms), Prometheus scrape interval (5s), Grafana refresh (5s). The dominant factor is the observability layer: Prometheus scrapes every 5s and Grafana refreshes every 5s, so the dashboard update latency is 5-10 seconds. The actual detection happens in milliseconds.</div></details>
+
+<details><summary>How would you validate that the CS2CD-trained model generalizes to a 2D arena shooter with different physics?</summary><div class="qa-body">The feature space is designed to be game-agnostic: aim_delta, speed, hit_rate, and reaction_time are meaningful in any shooter. However, the numeric ranges differ. CS2 has 3D movement, different speed caps, and different engagement distances. Validation would involve: (1) comparing feature distributions between CS2 and our game (KL divergence or Wasserstein distance), (2) using the CS2-trained model as a feature extractor and fine-tuning the classification head on our game's data, (3) measuring precision/recall on labeled data from our game specifically. In practice, fine-tuning on synthetic bot data from our game is essential for deployment.</div></details>
+
+<details><summary>What is the false positive rate, and how would you measure it in a production environment?</summary><div class="qa-body">The rule engine has a theoretical zero false positive rate because thresholds are set in the physics-impossible zone (speed > 7.0 when the cap is 5.0). In practice, floating-point edge cases could cause rare false positives. For ML models, the false positive rate depends on the confidence threshold (0.8 for XGBoost) and anomaly threshold (mean + 3*std for autoencoder). In production, you'd measure it by: (1) manually reviewing a sample of flagged players, (2) tracking appeal rates after bans, (3) running the system in shadow mode (detect but don't ban) for a validation period.</div></details>
+
+<details><summary>Why use Kafka instead of a simpler message queue like Redis Streams or RabbitMQ?</summary><div class="qa-body">Kafka provides: (1) durable, ordered, partitioned log storage with configurable retention, allowing replay and debugging, (2) consumer group semantics for horizontal scaling of the ML service, (3) multiple independent consumers on the same topic (feature engine, ML service, archival), (4) exactly-once semantics (with idempotent producers). Redis Streams would be lighter but lacks the multi-consumer model. RabbitMQ is message-oriented (consumed once) rather than log-oriented (multiple readers). For a production analytics pipeline, Kafka's guarantees justify the operational overhead.</div></details>
+
+<details><summary>How does the system handle the cold start problem when a player first connects?</summary><div class="qa-body">The sliding windows need time to fill. A 1-second window needs 60 ticks, a 5-second window needs 300 ticks, and a 30-second window needs 1800 ticks (30 seconds). During filling, features are computed over whatever data is available (partial windows). Features like hit_rate return 0 when no shots have been fired. The rule engine requires minimum shot counts (shots_fired_5s > 10/20/30) to prevent false triggers during cold start. The LSTM autoencoder needs a full 60-tick sequence before its first inference.</div></details>
+
+<details><summary>What are the ethical implications of automated cheat detection, and how would you handle false positives in a production game?</summary><div class="qa-body">False positive bans destroy player trust and can harm innocent players' reputations. Best practices include: (1) never auto-banning on a single alert; require sustained detection over multiple time windows, (2) implementing a confidence tiering system (flag for review at 80%, restrict matchmaking at 90%, ban only with 99%+ confidence over extended periods), (3) providing an appeal mechanism with human review, (4) transparency about what behavioral data is collected and how it's used (GDPR compliance), (5) regular bias audits to ensure the system doesn't disproportionately flag certain playstyles or skill levels.</div></details>
+
+<details><summary>How would you extend this system to detect collusion (two players cooperating to boost each other)?</summary><div class="qa-body">Collusion is a multi-player behavioral anomaly that single-player features can't capture. Extensions would include: (1) pairwise features: frequency of kills between specific player pairs, win-trading patterns, (2) graph-based analysis: build a kill graph and detect anomalous edge weights or clustering, (3) temporal correlation: detect synchronized actions between players (simultaneous position changes, coordinated engagements), (4) session-level features: players who repeatedly queue together and exhibit unusual win/loss patterns. This would require a graph neural network or social network analysis layer on top of the existing per-player pipeline.</div></details>
+
+<details><summary>What would change if you needed to detect cheats in a game with client-side prediction (like most modern FPS games)?</summary><div class="qa-body">With client-side prediction, the client runs its own physics simulation for responsiveness and sends predicted state to the server. The server reconciles differences. Key changes: (1) telemetry would include both client-predicted and server-corrected positions, with the delta being a feature itself (high deltas may indicate position manipulation), (2) the feature engine would need to account for network latency (a high-latency player legitimately has larger prediction errors), (3) speedhack detection would need to use server-validated positions, not client-reported ones, (4) aim analysis would use the server's hit registration, not the client's claim of hits.</div></details>
+
+<details><summary>How does the 5-second alert cooldown affect detection of intermittent cheaters who toggle cheats on and off rapidly?</summary><div class="qa-body">A cheater who toggles every 4 seconds would be detected on the first activation but the cooldown would suppress the second alert. However, the sliding window features accumulate even during cooldown. If a cheater toggles aimbot for 2 seconds, turns it off for 3 seconds, then toggles again, the 5-second hit_rate and aim_lock_ratio still capture the aggregate pattern. The cooldown prevents log flooding, not detection. For rapid togglers, reducing the cooldown to 2 seconds or implementing a "burst detection" counter (N alerts in M seconds) would be more appropriate.</div></details>
+
+<details><summary>Why not use a single end-to-end deep learning model instead of the multi-stage pipeline?</summary><div class="qa-body">An end-to-end model (e.g., a transformer consuming raw telemetry) would need to learn feature extraction, temporal patterns, and classification jointly. This requires significantly more training data and compute, produces a black-box that's hard to debug or explain, and has a single failure mode. Our multi-stage approach provides: (1) explainability at every stage (which feature triggered, which rule, which model), (2) graceful degradation (rule engine works even if ML service is down), (3) debuggability (inspect feature values, rule outputs, model predictions independently), (4) lower training data requirements (engineered features compress the input space from raw telemetry to 18 meaningful dimensions).</div></details>
+
+<details><summary>How scalable is the LSTM autoencoder inference, and what happens at 100,000 concurrent players?</summary><div class="qa-body">The LSTM autoencoder processes one sequence (60 x 18 = 1,080 floats) per player per second. At 100K players, that's 100K inferences/second. A single GPU can handle ~50K LSTM inferences/second for this sequence length. Scaling options: (1) batch inference (accumulate sequences, process in batches of 64-256 for GPU efficiency), (2) horizontal scaling via Kafka consumer groups (N ML service instances, each handling 100K/N players), (3) model distillation (train a smaller, faster model that approximates the LSTM), (4) tiered inference (run LSTM only for players flagged by the cheaper XGBoost or rule engine). Option 4 reduces inference volume by 90%+ since most players are clean.</div></details>
+
+<details><summary>What are the limitations of using reconstruction error as an anomaly score?</summary><div class="qa-body">Reconstruction error has several limitations: (1) it's sensitive to the training distribution; if the clean data has high variance, the threshold is pushed high and subtle cheats are missed, (2) it treats all features equally in MSE unless weighted, but some features (aim_delta) are more informative than others, (3) it can't distinguish between "novel cheat" and "novel legitimate behavior" (a highly skilled player using unconventional tactics might trigger it), (4) the autoencoder might learn shortcuts (e.g., predicting the mean of each feature) rather than capturing temporal dynamics. Mitigations include per-feature reconstruction error analysis, attention-weighted loss, and contrastive learning approaches.</div></details>
+
+<details><summary>How would you deploy this system to satisfy regulatory requirements (GDPR, CCPA)?</summary><div class="qa-body">Key considerations: (1) data minimization: collect only the 18 telemetry fields necessary for detection, no personally identifiable information (player IDs can be anonymized hashes), (2) retention limits: Kafka's 1-hour retention and Prometheus's 24-hour retention align with short-term operational use, (3) right to erasure: player data in Kafka naturally expires; model training data would need a deletion pipeline, (4) transparency: disclose in the privacy policy that behavioral telemetry is collected for anti-cheat purposes, (5) purpose limitation: telemetry must only be used for cheat detection, not advertising or profiling, (6) data processing agreements with infrastructure providers hosting Kafka and model storage.</div></details>
+
+<details><summary>If you had unlimited time and resources, what would you change about this architecture?</summary><div class="qa-body">Key improvements: (1) replace the LSTM with a temporal transformer for better long-range pattern detection, (2) add a replay analysis system that can reprocess historical telemetry for retrospective detection, (3) implement federated learning so models can be trained across multiple game titles without sharing raw data, (4) add a graph neural network layer for multi-player collusion detection, (5) implement adversarial training where a generator learns to produce "stealthy" cheats and the detector learns to catch them, (6) build a real-time dashboard that shows per-player suspicion scores with drill-down into which features are driving the score, (7) add A/B testing infrastructure for comparing detection models in shadow mode, (8) implement online learning for the autoencoder's anomaly threshold to adapt to player population shifts in real time.</div></details>
+
+</div>
+</section>
+
+<footer>
+<p>ENGR 5785G - Real-Time Data Analytics for IoT - Ontario Tech University - 2026</p>
+</footer>
+
+</body>
+</html>

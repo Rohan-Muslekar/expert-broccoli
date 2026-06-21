@@ -1,0 +1,17 @@
+{
+  "total_samples": 110740,
+  "train_samples": 88592,
+  "test_samples": 22148,
+  "clean_sequences": 80066,
+  "num_players": 10,
+  "xgboost_metrics": {
+    "accuracy": 0.7743362831858407,
+    "f1_weighted": 0.6817919866113208,
+    "recall_weighted": 0.7743362831858407
+  },
+  "autoencoder_final_loss": 0.24905038157963916,
+  "anomaly_threshold": {
+    "mean": 0.23536633704333934,
+    "std": 0.2121833577531169
+  }
+}
