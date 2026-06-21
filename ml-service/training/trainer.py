@@ -51,6 +51,13 @@ class TrainingPipeline:
         clean_train_features = train_features[clean_train_mask]
         logger.info("Training LSTM autoencoder on %d clean samples", len(clean_train_features))
 
+        xgboost_classifier.save(os.path.join(self.model_dir, "xgboost_classifier.json"))
+        normalizer.save(os.path.join(self.model_dir, "scaler.joblib"))
+
+        autoencoder = None
+        autoencoder_final_loss = None
+        threshold_stats = {"mean": 0.0, "std": 1.0}
+
         max_autoencoder_samples = 5000
         if len(clean_train_features) > max_autoencoder_samples:
             step = len(clean_train_features) // max_autoencoder_samples
@@ -58,17 +65,20 @@ class TrainingPipeline:
             logger.info("Downsampled autoencoder training to %d samples", len(clean_train_features))
 
         clean_sequences = self._make_sequences(clean_train_features, SEQUENCE_LENGTH)
-        if len(clean_sequences) < 10:
-            raise ValueError(f"Not enough clean sequences for autoencoder: {len(clean_sequences)}")
 
-        autoencoder = LSTMAutoencoder(num_features=len(FEATURE_NAMES), sequence_length=SEQUENCE_LENGTH)
-        autoencoder_history = autoencoder.train(clean_sequences, epochs=10, batch_size=64)
-        threshold_stats = autoencoder.calibrate_threshold(clean_sequences)
-        logger.info("Autoencoder threshold: mean=%.4f, std=%.4f", threshold_stats["mean"], threshold_stats["std"])
-
-        xgboost_classifier.save(os.path.join(self.model_dir, "xgboost_classifier.json"))
-        autoencoder.save(os.path.join(self.model_dir, "lstm_autoencoder.pt"))
-        normalizer.save(os.path.join(self.model_dir, "scaler.joblib"))
+        if len(clean_sequences) >= 10:
+            try:
+                autoencoder = LSTMAutoencoder(num_features=len(FEATURE_NAMES), sequence_length=SEQUENCE_LENGTH)
+                autoencoder_history = autoencoder.train(clean_sequences, epochs=10, batch_size=64)
+                threshold_stats = autoencoder.calibrate_threshold(clean_sequences)
+                autoencoder_final_loss = autoencoder_history["train_losses"][-1]
+                autoencoder.save(os.path.join(self.model_dir, "lstm_autoencoder.pt"))
+                logger.info("Autoencoder threshold: mean=%.4f, std=%.4f", threshold_stats["mean"], threshold_stats["std"])
+            except Exception:
+                logger.exception("LSTM autoencoder training failed, continuing with XGBoost only")
+                autoencoder = None
+        else:
+            logger.warning("Not enough clean sequences for autoencoder (%d), skipping", len(clean_sequences))
 
         with open(os.path.join(self.model_dir, "anomaly_threshold.json"), "w") as threshold_file:
             json.dump(threshold_stats, threshold_file)
@@ -80,7 +90,7 @@ class TrainingPipeline:
             "clean_sequences": len(clean_sequences),
             "num_players": len(player_ids),
             "xgboost_metrics": xgboost_metrics,
-            "autoencoder_final_loss": autoencoder_history["train_losses"][-1],
+            "autoencoder_final_loss": autoencoder_final_loss,
             "anomaly_threshold": threshold_stats,
         }
         with open(os.path.join(self.model_dir, "metadata.json"), "w") as metadata_file:

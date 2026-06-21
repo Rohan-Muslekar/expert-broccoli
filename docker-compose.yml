@@ -66,7 +66,7 @@ services:
       ALERTS_TOPIC: "alerts.detections"
       MODEL_DIR: "/app/saved_models"
       CS2CD_DATASET_PATH: "/app/datasets/cs2cd"
-      AUTO_TRAIN_THRESHOLD: "5000"
+      AUTO_TRAIN_THRESHOLD: "0"
       ANOMALY_STD_MULTIPLIER: "4.0"
       ALERT_COOLDOWN_SECONDS: "5"
       XGBOOST_CONFIDENCE_THRESHOLD: "0.95"
