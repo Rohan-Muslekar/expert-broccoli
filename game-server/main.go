@@ -1,0 +1,103 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"cheat-detection/game-server/config"
+	"cheat-detection/game-server/feature"
+	"cheat-detection/game-server/metrics"
+	"cheat-detection/game-server/server"
+	"cheat-detection/game-server/telemetry"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+func main() {
+	cfg := config.Load()
+	log.Printf("starting game server on :%d (tick_rate=%d, bots=%d, kafka=%v)",
+		cfg.Port, cfg.TickRate, cfg.BotCount, cfg.KafkaEnabled)
+
+	game := server.NewGame(cfg)
+	srv := server.NewServer(game)
+	producer := telemetry.NewProducer(cfg.KafkaEnabled, cfg.KafkaBrokers)
+	defer producer.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var featureEngine *feature.Engine
+	featureEvents := make(chan telemetry.PlayerTelemetry, 1024)
+	if cfg.KafkaEnabled {
+		featureEngine = feature.NewEngine(
+			cfg.KafkaBrokers,
+			cfg.FeatureProduceTopic,
+			cfg.FeatureAlertsTopic,
+			cfg.FeaturePlayerTimeout,
+		)
+		defer featureEngine.Close()
+		go featureEngine.Run(ctx, featureEvents)
+		log.Printf("feature engine started (produce=%s, alerts=%s)",
+			cfg.FeatureProduceTopic, cfg.FeatureAlertsTopic)
+	}
+
+	go func() {
+		for playerTelemetry := range game.TelemetryCh() {
+			producer.PublishTelemetry(ctx, playerTelemetry)
+			if featureEngine != nil {
+				select {
+				case featureEvents <- playerTelemetry:
+				default:
+				}
+			}
+		}
+	}()
+	go func() {
+		for killEvent := range game.KillsCh() {
+			producer.PublishKill(ctx, killEvent)
+		}
+	}()
+
+	tickInterval := time.Duration(1000/cfg.TickRate) * time.Millisecond
+	go func() {
+		ticker := time.NewTicker(tickInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				start := time.Now()
+				game.RunTick(time.Now())
+				srv.BroadcastState()
+				metrics.TickDuration.Observe(time.Since(start).Seconds())
+			}
+		}
+	}()
+
+	http.HandleFunc("/ws", srv.HandleWS)
+	http.HandleFunc("/dashboard-ws", srv.HandleDashboardWS)
+	http.Handle("/metrics", promhttp.Handler())
+
+	addr := fmt.Sprintf(":%d", cfg.Port)
+	httpSrv := &http.Server{Addr: addr}
+
+	go func() {
+		if err := httpSrv.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatalf("http server error: %v", err)
+		}
+	}()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	<-sigCh
+	log.Println("shutting down...")
+	cancel()
+	httpSrv.Shutdown(context.Background())
+}
