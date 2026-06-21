@@ -109,7 +109,7 @@ function drawFogOfWar(px, py, aim) {
         });
     }
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.beginPath();
     ctx.rect(0, 0, W, H);
 
@@ -199,10 +199,10 @@ function render() {
         ctx.fillText(p.id, p.x, p.y - PLAYER_R - 12);
     }
 
-    const me = state.players.find(p => p.id === myId);
-    if (me && me.alive) {
-        drawFogOfWar(me.x, me.y, me.aim);
-    }
+    // const me = state.players.find(p => p.id === myId);
+    // if (me && me.alive) {
+    //     drawFogOfWar(me.x, me.y, me.aim);
+    // }
 
     if (state.kills) {
         ctx.fillStyle = '#ff6644';
