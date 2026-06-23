@@ -43,7 +43,7 @@ def test_xgboost_below_threshold_no_alert():
     assert alert is None
 
 
-def test_autoencoder_alert_above_threshold():
+def test_autoencoder_alone_does_not_trigger():
     combiner = AlertCombiner(
         confidence_threshold=0.8,
         anomaly_std_multiplier=3.0,
@@ -59,9 +59,7 @@ def test_autoencoder_alert_above_threshold():
         anomaly_score=3.0,
         feature_importances={},
     )
-    assert alert is not None
-    assert alert["cheat_type"] == "unknown"
-    assert alert["model"] == "autoencoder"
+    assert alert is None
 
 
 def test_ensemble_when_both_trigger():
