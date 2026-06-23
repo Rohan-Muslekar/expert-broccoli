@@ -86,29 +86,7 @@ docker compose down -v     # stop and remove volumes
 
 ## Architecture
 
-```
-Game Client (HTML5 Canvas)
-    |  WebSocket (60 Hz)
-    v
-Game Server (Go 1.22, authoritative)
-    |  Kafka (KRaft, keyed by player_id)
-    |---> telemetry.raw          (raw player state per tick)
-    |---> events.kills           (kill events with context)
-    |
-    v
-Feature Engine (Go, embedded)
-    |  3 sliding windows: 1s / 5s / 30s
-    |---> features.computed      (18-feature vectors)
-    |---> alerts.detections      (rule-based alerts)
-    |
-    v
-ML Service (Python, FastAPI)
-    |  XGBoost (<1ms) + LSTM Autoencoder (~20ms)
-    |---> alerts.detections      (ML-based alerts)
-    |
-    v
-Prometheus (5s scrape) + Grafana (2 dashboards, 20+ metrics)
-```
+![System Architecture](screenshots/architecture.png)
 
 ![Kafka Pipeline](screenshots/fig2-kafka-topics.png)
 
@@ -218,7 +196,42 @@ The CS2CD dataset (Dorner et al., 2024) contains 795 real CS2 competitive matche
 ## Deliverables
 
 - [IEEE Technical Report](docs/IEEE_Cheat_Detection_Report.docx)
-- [Final Presentation](docs/Final_Presentation.pptx)
+- [Final Presentation](docs/Cheat_Detection_Final_Presentation.pptx) | [Google Slides](https://docs.google.com/presentation/d/1kthWH40HG7HRbdxdY_zuuYjEeyjRWFe188uf5A1HSEo/edit?usp=sharing)
+- [Academic Poster](docs/Cheat_Detection_Poster.pptx) | [Google Slides](https://docs.google.com/presentation/d/1VPjHV9nx6fRIm6zW_IOmykTPaPJhddx4opyd2zfOZfw/edit?usp=sharing)
+
+## Testing
+
+### Go (Feature Engine + Rule Detectors)
+
+```bash
+# Run all tests
+cd game-server && go test ./feature/ -v
+
+# Run with coverage report
+cd game-server && go test ./feature/ -coverprofile=coverage.out -count=1
+go tool cover -func=coverage.out
+
+# Generate HTML coverage report
+go tool cover -html=coverage.out -o coverage.html
+```
+
+**20 tests** covering the feature processor (sliding windows, speed computation, hit rate, direction changes, Pearson correlation) and rule engine (all 6 rules tested for true/false triggers, multi-cheat scenarios, alert field population).
+
+![Go Test Coverage](screenshots/test-coverage-go.png)
+
+### Python (ML Service)
+
+```bash
+# Run all tests
+cd ml-service && python -m pytest tests/ -v
+
+# Run with coverage
+cd ml-service && python -m pytest tests/ -v --cov=. --cov-report=term-missing
+```
+
+**39 tests across 8 modules** covering the LSTM autoencoder (train, score, calibrate, save/load), XGBoost classifier (train, predict, feature importance, save/load), ensemble combiner (alert fusion, cooldown, confidence gating), Kafka consumer (buffering, sequence building), CS2CD parser (parquet loading, cheater labeling, nearest enemy), feature extraction, normalizer, and training pipeline.
+
+![Python Test Coverage](screenshots/test-coverage-python.png)
 
 ## Project Structure
 
