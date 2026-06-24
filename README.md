@@ -195,7 +195,7 @@ The CS2CD dataset (Dorner et al., 2024) contains 795 real CS2 competitive matche
 
 ## Deliverables
 
-- [IEEE Technical Report](docs/IEEE_Cheat_Detection_Report.docx) | [Google Docs](https://docs.google.com/document/d/11bNTs0_V7e3VWg-cHkvIuVbfqEPGqfRSXtVa3kIBlqg/edit?usp=sharing)
+- [IEEE Technical Report](docs/Real_Time_Cheat_Detection_Report.docx) | [Google Docs](https://docs.google.com/document/d/11bNTs0_V7e3VWg-cHkvIuVbfqEPGqfRSXtVa3kIBlqg/edit?usp=sharing)
 - [Final Presentation](docs/Cheat_Detection_Final_Presentation.pptx) | [Google Slides](https://docs.google.com/presentation/d/1kthWH40HG7HRbdxdY_zuuYjEeyjRWFe188uf5A1HSEo/edit?usp=sharing)
 - [Academic Poster](docs/Cheat_Detection_Poster.pptx) | [Google Slides](https://docs.google.com/presentation/d/1VPjHV9nx6fRIm6zW_IOmykTPaPJhddx4opyd2zfOZfw/edit?usp=sharing)
 
